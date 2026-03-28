@@ -44,6 +44,7 @@ class User(Base):
     city = Column(String(100), nullable=True)
     subscription_tier = Column(String(20), default="beta")  # beta | free | monthly | annual
     subscription_expires = Column(DateTime, nullable=True)
+    daily_limit_override = Column(Integer, nullable=True)  # if set, overrides default daily limit
     created_at = Column(DateTime, default=datetime.utcnow)
 
     pets = relationship("Pet", back_populates="owner")

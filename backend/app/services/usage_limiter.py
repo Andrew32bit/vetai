@@ -27,10 +27,21 @@ async def _get_today_count(telegram_id: int) -> int:
         return result.scalar() or 0
 
 
+async def _get_user_limit(telegram_id: int) -> int:
+    """Get effective daily limit for a user (override or default)."""
+    async with async_session() as session:
+        result = await session.execute(
+            select(User.daily_limit_override).where(User.telegram_id == telegram_id)
+        )
+        override = result.scalar_one_or_none()
+        return override if override is not None else DAILY_LIMIT
+
+
 async def check_limit(telegram_id: int) -> bool:
     """Return True if the user can still make requests today."""
     count = await _get_today_count(telegram_id)
-    return count < DAILY_LIMIT
+    limit = await _get_user_limit(telegram_id)
+    return count < limit
 
 
 async def increment(telegram_id: int, feature: str) -> None:
@@ -51,4 +62,5 @@ async def increment(telegram_id: int, feature: str) -> None:
 async def get_remaining(telegram_id: int) -> int:
     """Return how many requests remain today."""
     count = await _get_today_count(telegram_id)
-    return max(0, DAILY_LIMIT - count)
+    limit = await _get_user_limit(telegram_id)
+    return max(0, limit - count)

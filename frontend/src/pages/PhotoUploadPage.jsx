@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Camera, Image, Upload, Loader2 } from "lucide-react";
+import { Camera, Upload, Loader2 } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -9,7 +9,6 @@ export default function PhotoUploadPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const fileRef = useRef();
-  const cameraRef = useRef();
 
   const handleFile = (e) => {
     const file = e.target.files[0];
@@ -59,22 +58,14 @@ export default function PhotoUploadPage() {
 
       {/* Upload area */}
       {!preview ? (
-        <div className="flex gap-3">
-          <button
-            onClick={() => cameraRef.current.click()}
-            className="flex-1 h-40 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center gap-3 text-gray-400 hover:border-tg-blue hover:text-tg-blue transition-colors"
-          >
-            <Camera size={36} />
-            <span className="font-medium text-sm">Камера</span>
-          </button>
-          <button
-            onClick={() => fileRef.current.click()}
-            className="flex-1 h-40 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center gap-3 text-gray-400 hover:border-tg-blue hover:text-tg-blue transition-colors"
-          >
-            <Image size={36} />
-            <span className="font-medium text-sm">Галерея</span>
-          </button>
-        </div>
+        <button
+          onClick={() => fileRef.current.click()}
+          className="w-full h-48 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center gap-3 text-gray-400 hover:border-tg-blue hover:text-tg-blue transition-colors bg-white"
+        >
+          <Camera size={40} />
+          <span className="font-medium text-sm text-gray-900">Загрузить фото</span>
+          <span className="text-xs text-gray-400">Камера или галерея</span>
+        </button>
       ) : (
         <div className="relative">
           <img
@@ -91,14 +82,6 @@ export default function PhotoUploadPage() {
         </div>
       )}
 
-      <input
-        ref={cameraRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handleFile}
-        className="hidden"
-      />
       <input
         ref={fileRef}
         type="file"
@@ -126,7 +109,14 @@ export default function PhotoUploadPage() {
       )}
 
       {/* Result */}
-      {result && (
+      {result && result.condition === "not_animal" ? (
+        <div className="mt-4 p-4 rounded-2xl bg-orange-50 border border-orange-200 shadow-sm text-center">
+          <span className="font-bold text-lg text-orange-600">Животное не найдено</span>
+          <p className="text-sm text-orange-700 mt-2">
+            Пожалуйста, загрузите фото вашего питомца
+          </p>
+        </div>
+      ) : result && (
         <div className="mt-4 p-4 rounded-2xl bg-white border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <span className="font-bold text-lg text-gray-900">{result.condition}</span>

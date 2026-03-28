@@ -105,6 +105,28 @@ async def analyze_photo(
             content_type=content_type,
         )
 
+        # Handle non-animal photos
+        if result.get("condition") == "not_animal":
+            return PhotoDiagnosisResponse(
+                condition="not_animal",
+                confidence=0.0,
+                severity="low",
+                description="На фото не обнаружено животное.",
+                recommendation="Пожалуйста, загрузите фото вашего питомца.",
+                should_visit_vet=False,
+            )
+
+        # Handle healthy animal photos
+        if result.get("condition") == "healthy":
+            return PhotoDiagnosisResponse(
+                condition="healthy",
+                confidence=float(result.get("confidence", 0.9)),
+                severity="low",
+                description="На фото животное выглядит здоровым, видимых проблем не обнаружено.",
+                recommendation="Если вас что-то беспокоит, попробуйте загрузить фото проблемного участка крупным планом.",
+                should_visit_vet=False,
+            )
+
         from urllib.parse import quote
         clinic_link = None
         if result.get("should_visit_vet") or result.get("severity") in ("medium", "high"):

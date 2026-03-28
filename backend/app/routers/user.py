@@ -2,14 +2,14 @@
 User management: auth via Telegram initData, registration, pet profiles, subscriptions.
 """
 
-from datetime import datetime
+from datetime import datetime, date
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
-from app.models.database import async_session, User, Pet
+from app.models.database import async_session, User, Pet, UsageLog
 from app.services.usage_limiter import get_remaining, DAILY_LIMIT
 
 router = APIRouter()
@@ -188,3 +188,66 @@ async def subscribe(tier: str, x_telegram_id: int = Header(...)):
     """
     # TODO: integrate Telegram Payments / YooKassa
     return {"ok": True, "tier": tier}
+
+
+# --- Admin Endpoints ---
+
+@router.post("/admin/set-limit")
+async def set_user_limit(telegram_id: int, daily_limit: int, admin_key: str = Header(...)):
+    """Set a custom daily limit override for a user."""
+    if admin_key != "vetai-admin-2026":
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    async with async_session() as session:
+        result = await session.execute(
+            select(User).where(User.telegram_id == telegram_id)
+        )
+        user = result.scalar_one_or_none()
+        if user is None:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        user.daily_limit_override = daily_limit
+        await session.commit()
+
+    return {"ok": True, "telegram_id": telegram_id, "daily_limit": daily_limit}
+
+
+@router.get("/admin/users")
+async def list_users(admin_key: str = Header(...)):
+    """List all users with stats (admin only)."""
+    if admin_key != "vetai-admin-2026":
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    today = date.today().isoformat()
+
+    async with async_session() as session:
+        result = await session.execute(
+            select(User).options(selectinload(User.pets))
+        )
+        users = result.scalars().all()
+
+        users_list = []
+        for u in users:
+            # Count today's usage
+            usage_result = await session.execute(
+                select(func.count(UsageLog.id)).where(
+                    UsageLog.user_id == u.id,
+                    func.date(UsageLog.used_at) == today,
+                )
+            )
+            usage_today = usage_result.scalar() or 0
+
+            users_list.append({
+                "id": u.id,
+                "telegram_id": u.telegram_id,
+                "first_name": u.first_name,
+                "username": u.username,
+                "city": u.city,
+                "login_count": u.login_count,
+                "last_login": u.last_login.isoformat() if u.last_login else None,
+                "daily_limit_override": u.daily_limit_override,
+                "pets_count": len(u.pets),
+                "usage_today": usage_today,
+            })
+
+    return {"users": users_list, "total": len(users_list)}
