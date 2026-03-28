@@ -1,0 +1,149 @@
+"""
+HuggingFace Inference API integration for veterinary chat and photo analysis.
+Models: Qwen2.5-7B-Instruct (chat), Qwen2.5-VL-7B-Instruct (vision).
+"""
+
+import base64
+import json
+import re
+import time
+import logging
+from huggingface_hub import InferenceClient
+from app.config import get_settings
+
+logger = logging.getLogger(__name__)
+
+
+def _get_client(provider: str | None = None) -> InferenceClient:
+    settings = get_settings()
+    return InferenceClient(
+        provider=provider or settings.HF_PROVIDER,
+        api_key=settings.HF_API_TOKEN,
+    )
+
+
+async def get_chat_response(
+    messages: list[dict],
+    system_prompt: str,
+) -> str:
+    """Send messages to HuggingFace chat model and get response."""
+    settings = get_settings()
+    client = _get_client()
+
+    full_messages = [{"role": "system", "content": system_prompt}] + messages
+
+    response = client.chat.completions.create(
+        model=settings.HF_CHAT_MODEL,
+        messages=full_messages,
+        max_tokens=1024,
+        temperature=0.7,
+    )
+
+    return response.choices[0].message.content
+
+
+async def analyze_photo(
+    image_bytes: bytes,
+    pet_species: str,
+    content_type: str = "image/jpeg",
+) -> dict:
+    """Analyze pet photo using vision-language model."""
+    settings = get_settings()
+    client = _get_client(provider=settings.HF_VISION_PROVIDER)
+
+    b64_image = base64.b64encode(image_bytes).decode("utf-8")
+    data_uri = f"data:{content_type};base64,{b64_image}"
+
+    prompt = f"""Ты — ветеринарный дерматолог. На фото проблемный участок кожи {pet_species}.
+
+ВАЖНО: Не спеши ставить диагноз «рана» или «травма». Сначала проанализируй характер поражения:
+- Покраснение с мокнутием, эрозиями, без чётких краёв пореза — дерматит (аллергический, атопический, контактный)
+- Пустулы и гной — пиодермия
+- Округлая алопеция с шелушением — дерматофития (лишай)
+- Локальная алопеция, покраснение, чешуйки — демодекоз
+- Острое мокнущее воспаление — hot spot
+- Рана/травма — ТОЛЬКО если видны явные порезы, разрывы ткани с ровными краями
+
+Отвечай ТОЛЬКО на русском. Ответь СТРОГО в формате JSON:
+{{"condition": "основной диагноз", "confidence": 0.0-1.0, "severity": "low|medium|high", "description": "описание поражения", "recommendation": "рекомендации владельцу", "should_visit_vet": true|false}}"""
+
+    # Retry up to 3 times — Hyperbolic can return 500 intermittently
+    raw_text = None
+    for attempt in range(3):
+        try:
+            response = client.chat.completions.create(
+                model=settings.HF_VISION_MODEL,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "image_url", "image_url": {"url": data_uri}},
+                            {"type": "text", "text": prompt},
+                        ],
+                    }
+                ],
+                max_tokens=1024,
+            )
+            raw_text = response.choices[0].message.content
+            break
+        except Exception as e:
+            logger.warning(f"Vision API attempt {attempt+1}/3 failed: {e}")
+            if attempt < 2:
+                time.sleep(2)
+
+    if raw_text is None:
+        raise RuntimeError("Vision API failed after 3 attempts")
+
+    # Parse JSON from response
+    try:
+        json_match = re.search(r'\{[^{}]*\}', raw_text, re.DOTALL)
+        if json_match:
+            return json.loads(json_match.group())
+    except (json.JSONDecodeError, AttributeError):
+        pass
+
+    return {
+        "condition": "Не удалось определить",
+        "confidence": 0.0,
+        "severity": "medium",
+        "description": raw_text,
+        "recommendation": "Рекомендуем показать питомца ветеринару для точной диагностики.",
+        "should_visit_vet": True,
+    }
+
+
+async def interpret_lab_results(
+    extracted_text: str,
+    pet_species: str,
+    pet_age_months: int | None = None,
+) -> dict:
+    """Interpret lab results text using chat model."""
+    settings = get_settings()
+    client = _get_client()
+
+    prompt = f"""Проанализируй результаты анализов домашнего животного.
+Вид: {pet_species}
+{f'Возраст: {pet_age_months} мес' if pet_age_months else ''}
+
+Текст анализа (из OCR):
+{extracted_text}
+
+Верни JSON:
+{{"parsed_values": {{"название_показателя": "значение", ...}}, "anomalies": ["описание отклонения 1", ...], "summary": "краткое резюме на русском"}}"""
+
+    response = client.chat.completions.create(
+        model=settings.HF_CHAT_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=1024,
+    )
+
+    raw_text = response.choices[0].message.content
+
+    try:
+        json_match = re.search(r'\{.*\}', raw_text, re.DOTALL)
+        if json_match:
+            return json.loads(json_match.group())
+    except (json.JSONDecodeError, AttributeError):
+        pass
+
+    return {"parsed_values": {}, "anomalies": [], "summary": raw_text}

@@ -1,0 +1,33 @@
+# Core
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+pydantic-settings==2.6.0
+
+# Database
+sqlalchemy[asyncio]==2.0.36
+aiosqlite==0.20.0
+alembic==1.14.0
+
+# AI / ML
+huggingface-hub>=0.25.0
+# torch==2.5.0           # uncomment when adding CV model
+# torchvision==0.20.0    # uncomment when adding CV model
+# ultralytics==8.3.0     # YOLOv8 — uncomment for Phase 2
+# onnxruntime==1.20.0    # lighter inference alternative
+
+# OCR
+# paddleocr==2.9.0       # uncomment when ready
+# paddlepaddle==3.0.0    # uncomment when ready
+# pytesseract==0.3.13    # fallback OCR
+
+# Storage
+boto3==1.35.0            # S3-compatible (Yandex Cloud)
+
+# Telegram
+python-telegram-bot==21.7
+
+# Utils
+python-multipart==0.0.12
+python-dotenv==1.0.1
+httpx==0.27.2
+Pillow==11.0.0
