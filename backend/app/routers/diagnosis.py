@@ -45,17 +45,16 @@ async def analyze_photo(
     x_telegram_id: int = Header(...),
 ):
     """Upload pet photo → HuggingFace Vision LLM analysis."""
-    if not check_limit(x_telegram_id, "photo"):
-        remaining = get_remaining(x_telegram_id, "photo")
+    if not await check_limit(x_telegram_id):
+        remaining = await get_remaining(x_telegram_id)
         raise HTTPException(
             status_code=429,
             detail={
-                "message": "Дневной лимит фото-диагностик исчерпан. Попробуйте завтра.",
+                "message": "Лимит 3 запроса в день исчерпан. Попробуйте завтра.",
                 "remaining": remaining,
-                "feature": "photo",
             },
         )
-    increment(x_telegram_id, "photo")
+    await increment(x_telegram_id, "photo")
 
     try:
         image_bytes = await photo.read()
@@ -105,17 +104,16 @@ async def analyze_lab_results(
     x_telegram_id: int = Header(...),
 ):
     """Upload lab results photo/PDF → OCR → LLM interpretation."""
-    if not check_limit(x_telegram_id, "lab"):
-        remaining = get_remaining(x_telegram_id, "lab")
+    if not await check_limit(x_telegram_id):
+        remaining = await get_remaining(x_telegram_id)
         raise HTTPException(
             status_code=429,
             detail={
-                "message": "Дневной лимит анализов исчерпан. Попробуйте завтра.",
+                "message": "Лимит 3 запроса в день исчерпан. Попробуйте завтра.",
                 "remaining": remaining,
-                "feature": "lab",
             },
         )
-    increment(x_telegram_id, "lab")
+    await increment(x_telegram_id, "lab")
 
     # TODO: integrate PaddleOCR for real text extraction
     # For now, use a placeholder OCR step

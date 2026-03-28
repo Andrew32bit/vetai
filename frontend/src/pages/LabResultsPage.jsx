@@ -14,18 +14,28 @@ export default function LabResultsPage() {
     if (f) { setFile(f); setResult(null); }
   };
 
+  const [limitError, setLimitError] = useState(null);
+
   const analyze = async () => {
     if (!file) return;
     setLoading(true);
+    setLimitError(null);
     try {
+      const telegramId = localStorage.getItem("vetai_telegram_id") || "12345";
       const form = new FormData();
       form.append("file", file);
 
       const res = await fetch(`${API_URL}/api/v1/diagnosis/lab-results`, {
         method: "POST",
-        headers: { "x-telegram-id": "12345" },
+        headers: { "x-telegram-id": telegramId },
         body: form,
       });
+
+      if (res.status === 429) {
+        setLimitError("Лимит 3 запроса в день исчерпан. Попробуйте завтра.");
+        return;
+      }
+
       const data = await res.json();
       setResult(data);
     } catch (err) {
@@ -69,6 +79,13 @@ export default function LabResultsPage() {
           {loading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />}
           {loading ? "Распознаём..." : "Расшифровать"}
         </button>
+      )}
+
+      {/* Limit error */}
+      {limitError && (
+        <div className="mt-4 p-4 rounded-2xl bg-red-50 border border-red-200 text-center text-sm text-red-600 font-medium">
+          {limitError}
+        </div>
       )}
 
       {result && (

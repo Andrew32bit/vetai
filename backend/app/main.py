@@ -43,6 +43,6 @@ app.include_router(chat.router, prefix="/api/v1/chat", tags=["chat"])
 @app.on_event("startup")
 async def startup():
     """Initialize DB, load ML models."""
-    # TODO: init database tables
+    from app.models.database import init_db
+    await init_db()
     # TODO: load EfficientNet / YOLOv8 model weights
-    pass

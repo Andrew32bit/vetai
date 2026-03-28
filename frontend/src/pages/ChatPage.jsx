@@ -28,11 +28,13 @@ export default function ChatPage() {
     try {
       const user = JSON.parse(localStorage.getItem("vetai_user") || "{}");
 
+      const telegramId = localStorage.getItem("vetai_telegram_id") || "12345";
+
       const res = await fetch(`${API_URL}/api/v1/chat/message`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-telegram-id": "12345",
+          "x-telegram-id": telegramId,
         },
         body: JSON.stringify({
           message: userMsg.content,
@@ -40,6 +42,15 @@ export default function ChatPage() {
           city: user.city || null,
         }),
       });
+
+      if (res.status === 429) {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: "Лимит 3 запроса в день исчерпан. Попробуйте завтра." },
+        ]);
+        return;
+      }
+
       const data = await res.json();
 
       // Add assistant reply

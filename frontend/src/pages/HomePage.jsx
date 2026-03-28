@@ -1,5 +1,8 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Camera, FileText, MessageCircle } from "lucide-react";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 const actions = [
   {
@@ -28,20 +31,42 @@ const actions = [
 export default function HomePage() {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("vetai_user") || "{}");
+  const [usageToday, setUsageToday] = useState(0);
+  const usageLimit = 3;
+
+  useEffect(() => {
+    const fetchUsage = async () => {
+      const telegramId = localStorage.getItem("vetai_telegram_id") || "12345";
+      try {
+        const res = await fetch(`${API_URL}/api/v1/users/me`, {
+          headers: { "x-telegram-id": telegramId },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setUsageToday(data.usage_today || 0);
+        }
+      } catch (err) {
+        console.error("Failed to fetch usage:", err);
+      }
+    };
+    fetchUsage();
+  }, []);
+
+  const remaining = usageLimit - usageToday;
 
   return (
     <div className="px-4 py-6">
       {/* Greeting */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold">
-          Привет{user.petName ? `, ${user.petName}` : ""}! 🐾
+          Привет{user.petName || (user.pets && user.pets[0]?.name) ? `, ${user.petName || user.pets[0]?.name}` : ""}! 🐾
         </h1>
         <p className="text-gray-500 mt-1">Как здоровье вашего питомца?</p>
       </div>
 
-      {/* Beta banner */}
+      {/* Beta banner with remaining requests */}
       <div className="mb-4 px-3 py-2 rounded-xl bg-green-50 border border-green-200 text-center text-sm text-green-700">
-        Бета — бесплатно! Лимиты: 5 фото, 20 сообщений, 3 анализа в день
+        Бета — бесплатно! Осталось запросов: {remaining}/{usageLimit}
       </div>
 
       {/* Action cards */}

@@ -1,48 +1,54 @@
 """
-In-memory usage limiter for beta free tier.
-Tracks daily usage per telegram_id with automatic daily reset.
+Usage limiter for beta free tier.
+Tracks daily usage per user in SQLite via async SQLAlchemy.
+Beta limit: 3 requests/day total (all features combined).
 """
 
-from datetime import date
-from typing import Dict, Tuple
+from datetime import date, datetime
+from sqlalchemy import select, func
 
-# Daily limits per feature
-DAILY_LIMITS = {
-    "photo": 5,
-    "chat": 20,
-    "lab": 3,
-}
+from app.models.database import async_session, UsageLog, User
 
-# In-memory storage: {(telegram_id, feature): {"date": date, "count": int}}
-_usage: Dict[Tuple[int, str], dict] = {}
+DAILY_LIMIT = 3
 
 
-def _get_entry(telegram_id: int, feature: str) -> dict:
-    """Get or create usage entry, resetting if it's a new day."""
-    key = (telegram_id, feature)
-    today = date.today()
-    entry = _usage.get(key)
-    if entry is None or entry["date"] != today:
-        entry = {"date": today, "count": 0}
-        _usage[key] = entry
-    return entry
+async def _get_today_count(telegram_id: int) -> int:
+    """Get total usage count for today for a given telegram_id."""
+    async with async_session() as session:
+        today = date.today().isoformat()
+        result = await session.execute(
+            select(func.count(UsageLog.id))
+            .join(User, UsageLog.user_id == User.id)
+            .where(
+                User.telegram_id == telegram_id,
+                func.date(UsageLog.used_at) == today,
+            )
+        )
+        return result.scalar() or 0
 
 
-def check_limit(telegram_id: int, feature: str) -> bool:
-    """Return True if the user can still use this feature today."""
-    entry = _get_entry(telegram_id, feature)
-    limit = DAILY_LIMITS.get(feature, 0)
-    return entry["count"] < limit
+async def check_limit(telegram_id: int) -> bool:
+    """Return True if the user can still make requests today."""
+    count = await _get_today_count(telegram_id)
+    return count < DAILY_LIMIT
 
 
-def increment(telegram_id: int, feature: str) -> None:
-    """Increment the usage counter for a feature."""
-    entry = _get_entry(telegram_id, feature)
-    entry["count"] += 1
+async def increment(telegram_id: int, feature: str) -> None:
+    """Record a usage event for the user."""
+    async with async_session() as session:
+        # Find user_id by telegram_id
+        result = await session.execute(
+            select(User.id).where(User.telegram_id == telegram_id)
+        )
+        user_id = result.scalar()
+        if user_id is None:
+            return
+        log = UsageLog(user_id=user_id, feature=feature, used_at=datetime.utcnow())
+        session.add(log)
+        await session.commit()
 
 
-def get_remaining(telegram_id: int, feature: str) -> int:
-    """Return how many uses remain today for this feature."""
-    entry = _get_entry(telegram_id, feature)
-    limit = DAILY_LIMITS.get(feature, 0)
-    return max(0, limit - entry["count"])
+async def get_remaining(telegram_id: int) -> int:
+    """Return how many requests remain today."""
+    count = await _get_today_count(telegram_id)
+    return max(0, DAILY_LIMIT - count)

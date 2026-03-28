@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { PawPrint, Cat, Dog } from "lucide-react";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const steps = ["welcome", "pet_type", "pet_details", "plan"];
 
 export default function OnboardingPage({ onComplete }) {
@@ -107,18 +108,32 @@ export default function OnboardingPage({ onComplete }) {
         <div className="w-full max-w-sm text-center">
           <h2 className="text-xl font-bold mb-4">Бета-версия — все функции бесплатны!</h2>
           <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 mb-4">
-            <div className="text-sm font-semibold text-tg-blue mb-2">Дневные лимиты:</div>
-            <div className="flex justify-center gap-4 text-sm text-gray-700">
-              <span>5 фото</span>
-              <span>20 сообщений</span>
-              <span>3 анализа</span>
+            <div className="text-sm font-semibold text-tg-blue mb-2">Дневной лимит:</div>
+            <div className="text-sm text-gray-700">
+              3 запроса в день (фото + чат + анализы)
             </div>
           </div>
           <p className="text-xs text-gray-400 mb-6">
             После завершения бета-тестирования будет введена платная подписка
           </p>
           <button
-            onClick={() => onComplete({ petType, petName, breed, city, plan: "beta" })}
+            onClick={async () => {
+              const telegramId = localStorage.getItem("vetai_telegram_id") || "12345";
+              try {
+                await fetch(`${API_URL}/api/v1/users/register`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    telegram_id: Number(telegramId),
+                    pet: { name: petName, species: petType, breed: breed || null },
+                    city: city || null,
+                  }),
+                });
+              } catch (err) {
+                console.error("Register error:", err);
+              }
+              onComplete({ petType, petName, breed, city, plan: "beta" });
+            }}
             className="w-full bg-tg-blue text-white font-semibold py-3 rounded-xl"
           >
             Начать использовать

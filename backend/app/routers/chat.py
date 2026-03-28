@@ -120,17 +120,16 @@ async def send_message(
     x_telegram_id: int = Header(...),
 ):
     """Send message to symptom chat via HuggingFace LLM."""
-    if not check_limit(x_telegram_id, "chat"):
-        remaining = get_remaining(x_telegram_id, "chat")
+    if not await check_limit(x_telegram_id):
+        remaining = await get_remaining(x_telegram_id)
         raise HTTPException(
             status_code=429,
             detail={
-                "message": "Дневной лимит сообщений исчерпан. Попробуйте завтра.",
+                "message": "Лимит 3 запроса в день исчерпан. Попробуйте завтра.",
                 "remaining": remaining,
-                "feature": "chat",
             },
         )
-    increment(x_telegram_id, "chat")
+    await increment(x_telegram_id, "chat")
 
     # Build conversation history for the model
     messages = [{"role": m.role, "content": m.content} for m in request.history]
