@@ -32,7 +32,7 @@ export default function OnboardingPage({ onComplete }) {
       {current === "welcome" && (
         <div className="text-center">
           <div className="text-6xl mb-4">🐾</div>
-          <h1 className="text-2xl font-bold mb-2">VetAI</h1>
+          <h1 className="text-2xl font-bold mb-2 text-gray-900">VetAI</h1>
           <p className="text-gray-500 mb-8">
             AI-ветеринар в вашем телефоне. Проверьте здоровье питомца по фото, анализам или симптомам.
           </p>
@@ -47,7 +47,7 @@ export default function OnboardingPage({ onComplete }) {
 
       {current === "pet_type" && (
         <div className="text-center w-full max-w-sm">
-          <h2 className="text-xl font-bold mb-6">Кто ваш питомец?</h2>
+          <h2 className="text-xl font-bold mb-6 text-gray-900">Кто ваш питомец?</h2>
           <div className="flex gap-4 justify-center">
             {[
               { type: "cat", emoji: "🐱", label: "Кошка" },
@@ -61,7 +61,7 @@ export default function OnboardingPage({ onComplete }) {
                 }`}
               >
                 <span className="text-5xl">{opt.emoji}</span>
-                <span className="font-semibold">{opt.label}</span>
+                <span className="font-semibold text-gray-900">{opt.label}</span>
               </button>
             ))}
           </div>
@@ -70,7 +70,7 @@ export default function OnboardingPage({ onComplete }) {
 
       {current === "pet_details" && (
         <div className="w-full max-w-sm">
-          <h2 className="text-xl font-bold mb-6 text-center">Расскажите о питомце</h2>
+          <h2 className="text-xl font-bold mb-6 text-center text-gray-900">Расскажите о питомце</h2>
           <div className="space-y-4">
             <input
               type="text"
@@ -106,7 +106,7 @@ export default function OnboardingPage({ onComplete }) {
 
       {current === "plan" && (
         <div className="w-full max-w-sm text-center">
-          <h2 className="text-xl font-bold mb-4">Бета-версия — все функции бесплатны!</h2>
+          <h2 className="text-xl font-bold mb-4 text-gray-900">Бета-версия — все функции бесплатны!</h2>
           <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 mb-4">
             <div className="text-sm font-semibold text-tg-blue mb-2">Дневной лимит:</div>
             <div className="text-sm text-gray-700">

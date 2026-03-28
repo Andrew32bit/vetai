@@ -51,8 +51,8 @@ export default function PhotoUploadPage() {
 
   return (
     <div className="px-4 py-6">
-      <h1 className="text-xl font-bold mb-4">Проверка по фото 📸</h1>
-      <p className="text-sm text-gray-500 mb-6">
+      <h1 className="text-xl font-bold mb-4 text-gray-900">Проверка по фото 📸</h1>
+      <p className="text-sm text-gray-600 mb-6">
         Сфотографируйте проблемное место питомца. AI определит возможное заболевание.
       </p>
 
@@ -112,7 +112,7 @@ export default function PhotoUploadPage() {
       {result && (
         <div className="mt-4 p-4 rounded-2xl bg-white border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <span className="font-bold text-lg">{result.condition}</span>
+            <span className="font-bold text-lg text-gray-900">{result.condition}</span>
             <span
               className={`text-xs font-semibold px-2 py-1 rounded-full ${
                 result.severity === "high"

@@ -20,8 +20,9 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const telegramId = localStorage.getItem("vetai_telegram_id") || "12345";
     fetch(`${API_URL}/api/v1/diagnosis/history`, {
-      headers: { "x-telegram-id": "12345" },
+      headers: { "x-telegram-id": telegramId },
     })
       .then((r) => r.json())
       .then((data) => setItems(data.items || []))
@@ -51,7 +52,7 @@ export default function HistoryPage() {
 
   return (
     <div className="px-4 py-6">
-      <h1 className="text-xl font-bold mb-4">История проверок</h1>
+      <h1 className="text-xl font-bold mb-4 text-gray-900">История проверок</h1>
       <div className="space-y-3">
         {items.map((item, i) => {
           const Icon = typeIcons[item.type] || Clock;
@@ -64,7 +65,7 @@ export default function HistoryPage() {
                 <Icon size={20} className="text-tg-blue" />
               </div>
               <div className="flex-1">
-                <div className="font-semibold text-sm">{item.condition || typeLabels[item.type]}</div>
+                <div className="font-semibold text-sm text-gray-900">{item.condition || typeLabels[item.type]}</div>
                 <div className="text-xs text-gray-400">{item.created_at}</div>
               </div>
               {item.severity && (

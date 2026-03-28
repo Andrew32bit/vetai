@@ -3,13 +3,16 @@ Symptom chat: structured conversation with HuggingFace LLM.
 Collects symptoms → generates preliminary assessment → recommends clinic if urgent.
 """
 
+import json
 import logging
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 from typing import Optional
+from sqlalchemy import select
 
 from app.services.hf_service import get_chat_response
 from app.services.usage_limiter import check_limit, increment, get_remaining
+from app.models.database import async_session, User, Diagnosis
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -35,7 +38,9 @@ class ChatResponse(BaseModel):
     clinic_recommendation: Optional[str] = None
 
 
-SYSTEM_PROMPT = """Ты — VetAI, AI-ассистент ветеринарного врача. Ты помогаешь владельцам домашних животных предварительно оценить симптомы их питомцев.
+SYSTEM_PROMPT = """КРИТИЧЕСКИ ВАЖНО: Весь твой ответ ДОЛЖЕН быть ТОЛЬКО на русском языке. Ни одного слова на китайском, английском или любом другом языке. Это абсолютное требование.
+
+Ты — VetAI, AI-ассистент ветеринарного врача. Ты помогаешь владельцам домашних животных предварительно оценить симптомы их питомцев.
 
 ЯЗЫК: Отвечай ТОЛЬКО на русском языке. Никогда не используй другие языки. Все вопросы, оценки и рекомендации — строго на русском.
 
@@ -147,13 +152,40 @@ async def send_message(
             parsed["urgency"], request.city
         )
 
-        return ChatResponse(
+        response = ChatResponse(
             reply=parsed["reply"],
             follow_up_questions=parsed["questions"],
             preliminary_assessment=parsed["assessment"],
             urgency=parsed["urgency"],
             clinic_recommendation=clinic_rec,
         )
+
+        # Save chat diagnosis to DB
+        try:
+            async with async_session() as session:
+                user_result = await session.execute(
+                    select(User.id).where(User.telegram_id == x_telegram_id)
+                )
+                user_id = user_result.scalar_one_or_none()
+                if user_id is not None:
+                    diag = Diagnosis(
+                        user_id=user_id,
+                        type="chat",
+                        condition=parsed["assessment"] or "chat",
+                        severity=parsed["urgency"],
+                        result_json=json.dumps({
+                            "reply": parsed["reply"],
+                            "assessment": parsed["assessment"],
+                            "urgency": parsed["urgency"],
+                            "questions": parsed["questions"],
+                        }, ensure_ascii=False),
+                    )
+                    session.add(diag)
+                    await session.commit()
+        except Exception as save_err:
+            logger.error(f"Failed to save chat diagnosis: {save_err}")
+
+        return response
 
     except Exception as e:
         logger.error(f"HuggingFace API error: {e}")

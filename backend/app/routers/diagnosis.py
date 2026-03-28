@@ -5,16 +5,55 @@ Diagnosis endpoints:
 3. Diagnosis history
 """
 
+import json
 import logging
 from fastapi import APIRouter, UploadFile, File, Header, HTTPException
 from pydantic import BaseModel
 from typing import Optional
+from sqlalchemy import select
 
 from app.services.hf_service import analyze_photo as hf_analyze_photo, interpret_lab_results
 from app.services.usage_limiter import check_limit, increment, get_remaining
+from app.models.database import async_session, User, Diagnosis
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+async def _get_user_id(telegram_id: int) -> int | None:
+    """Look up internal user ID from telegram_id."""
+    async with async_session() as session:
+        result = await session.execute(
+            select(User.id).where(User.telegram_id == telegram_id)
+        )
+        row = result.scalar_one_or_none()
+        return row
+
+
+async def _save_diagnosis(
+    telegram_id: int,
+    dtype: str,
+    condition: str | None = None,
+    confidence: float | None = None,
+    severity: str | None = None,
+    result_json: dict | None = None,
+):
+    """Save a diagnosis record to the DB."""
+    user_id = await _get_user_id(telegram_id)
+    if user_id is None:
+        logger.warning(f"Cannot save diagnosis: user {telegram_id} not found in DB")
+        return
+    async with async_session() as session:
+        diag = Diagnosis(
+            user_id=user_id,
+            type=dtype,
+            condition=condition,
+            confidence=confidence,
+            severity=severity,
+            result_json=json.dumps(result_json, ensure_ascii=False) if result_json else None,
+        )
+        session.add(diag)
+        await session.commit()
 
 
 class PhotoDiagnosisResponse(BaseModel):
@@ -71,7 +110,7 @@ async def analyze_photo(
             query = f"ветеринарная клиника {city}" if city else "ветеринарная клиника рядом"
             clinic_link = f"https://yandex.ru/maps/?text={query.replace(' ', '+')}"
 
-        return PhotoDiagnosisResponse(
+        response = PhotoDiagnosisResponse(
             condition=result.get("condition", "Не определено"),
             confidence=float(result.get("confidence", 0.0)),
             severity=result.get("severity", "medium"),
@@ -80,6 +119,27 @@ async def analyze_photo(
             should_visit_vet=result.get("should_visit_vet", True),
             clinic_link=clinic_link,
         )
+
+        # Save diagnosis to DB
+        try:
+            await _save_diagnosis(
+                telegram_id=x_telegram_id,
+                dtype="photo",
+                condition=response.condition,
+                confidence=response.confidence,
+                severity=response.severity,
+                result_json={
+                    "condition": response.condition,
+                    "confidence": response.confidence,
+                    "severity": response.severity,
+                    "description": response.description,
+                    "recommendation": response.recommendation,
+                },
+            )
+        except Exception as save_err:
+            logger.error(f"Failed to save photo diagnosis: {save_err}")
+
+        return response
 
     except Exception as e:
         logger.error(f"Photo analysis error: {e}")
@@ -126,12 +186,30 @@ async def analyze_lab_results(
             pet_species=species,
         )
 
-        return LabResultsResponse(
+        response = LabResultsResponse(
             extracted_text=extracted_text,
             parsed_values=result.get("parsed_values", {}),
             anomalies=result.get("anomalies", []),
             summary=result.get("summary", "Не удалось интерпретировать результаты."),
         )
+
+        # Save diagnosis to DB
+        try:
+            await _save_diagnosis(
+                telegram_id=x_telegram_id,
+                dtype="lab_results",
+                condition="Анализы",
+                result_json={
+                    "extracted_text": response.extracted_text,
+                    "parsed_values": response.parsed_values,
+                    "anomalies": response.anomalies,
+                    "summary": response.summary,
+                },
+            )
+        except Exception as save_err:
+            logger.error(f"Failed to save lab diagnosis: {save_err}")
+
+        return response
 
     except Exception as e:
         logger.error(f"Lab results analysis error: {e}")
@@ -151,5 +229,29 @@ async def get_diagnosis_history(
     limit: int = 20,
 ):
     """Get user's diagnosis history."""
-    # TODO: fetch from DB
-    return {"items": [], "total": 0}
+    user_id = await _get_user_id(x_telegram_id)
+    if user_id is None:
+        return {"items": [], "total": 0}
+
+    async with async_session() as session:
+        result = await session.execute(
+            select(Diagnosis)
+            .where(Diagnosis.user_id == user_id)
+            .order_by(Diagnosis.created_at.desc())
+            .limit(limit)
+        )
+        diagnoses = result.scalars().all()
+
+    items = []
+    for d in diagnoses:
+        items.append({
+            "id": d.id,
+            "type": d.type,
+            "condition": d.condition,
+            "confidence": d.confidence,
+            "severity": d.severity,
+            "result_json": json.loads(d.result_json) if d.result_json else None,
+            "created_at": d.created_at.isoformat() if d.created_at else None,
+        })
+
+    return {"items": items, "total": len(items)}

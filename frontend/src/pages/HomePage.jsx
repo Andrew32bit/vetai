@@ -58,7 +58,7 @@ export default function HomePage() {
     <div className="px-4 py-6">
       {/* Greeting */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">
+        <h1 className="text-2xl font-bold text-gray-900">
           Привет{user.petName || (user.pets && user.pets[0]?.name) ? `, ${user.petName || user.pets[0]?.name}` : ""}! 🐾
         </h1>
         <p className="text-gray-500 mt-1">Как здоровье вашего питомца?</p>
@@ -86,8 +86,8 @@ export default function HomePage() {
                 <Icon size={24} color={action.color} />
               </div>
               <div>
-                <div className="font-semibold">{action.title}</div>
-                <div className="text-sm text-gray-400">{action.desc}</div>
+                <div className="font-semibold text-gray-900">{action.title}</div>
+                <div className="text-sm text-gray-500">{action.desc}</div>
               </div>
             </button>
           );

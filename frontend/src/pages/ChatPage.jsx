@@ -1,15 +1,28 @@
-import { useState, useRef, useEffect } from "react";
-import { Send, Loader2, MapPin } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Send, Loader2, MapPin, Trash2 } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+const INITIAL_MESSAGES = [
+  {
+    role: "assistant",
+    content: "Здравствуйте! Я AI-ветеринар VetAI. Опишите симптомы вашего питомца, и я помогу разобраться. Что вас беспокоит?",
+  },
+];
+
+const STORAGE_KEY = "vetai_chat_messages";
+
 export default function ChatPage() {
-  const [messages, setMessages] = useState([
-    {
-      role: "assistant",
-      content: "Здравствуйте! Я AI-ветеринар VetAI. Опишите симптомы вашего питомца, и я помогу разобраться. Что вас беспокоит?",
-    },
-  ]);
+  const [messages, setMessages] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return INITIAL_MESSAGES;
+  });
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef();
@@ -17,6 +30,15 @@ export default function ChatPage() {
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+  }, [messages]);
+
+  const clearChat = useCallback(() => {
+    setMessages(INITIAL_MESSAGES);
+    localStorage.removeItem(STORAGE_KEY);
+  }, []);
 
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
@@ -130,6 +152,19 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-full">
+      {/* Header with clear button */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200">
+        <h1 className="text-lg font-bold text-gray-900">Чат с AI-ветеринаром</h1>
+        <button
+          onClick={clearChat}
+          className="flex items-center gap-1 text-sm text-gray-400 hover:text-red-500 transition-colors"
+          title="Очистить чат"
+        >
+          <Trash2 size={16} />
+          <span>Очистить</span>
+        </button>
+      </div>
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {messages.map(renderMessage)}

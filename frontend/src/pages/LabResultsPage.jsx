@@ -47,8 +47,8 @@ export default function LabResultsPage() {
 
   return (
     <div className="px-4 py-6">
-      <h1 className="text-xl font-bold mb-4">Загрузить анализы 📋</h1>
-      <p className="text-sm text-gray-500 mb-6">
+      <h1 className="text-xl font-bold mb-4 text-gray-900">Загрузить анализы 📋</h1>
+      <p className="text-sm text-gray-600 mb-6">
         Загрузите фото или PDF с результатами анализов. AI распознает текст и найдёт отклонения.
       </p>
 
@@ -91,7 +91,7 @@ export default function LabResultsPage() {
       {result && (
         <div className="mt-4 space-y-3">
           <div className="p-4 rounded-2xl bg-white border border-gray-100 shadow-sm">
-            <div className="font-bold mb-2">Извлечённые данные</div>
+            <div className="font-bold mb-2 text-gray-900">Извлечённые данные</div>
             <div className="text-sm text-gray-600 whitespace-pre-line">
               {result.extracted_text}
             </div>
