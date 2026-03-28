@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Camera, Upload, Loader2 } from "lucide-react";
+import { Camera, Image, Upload, Loader2 } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -9,6 +9,7 @@ export default function PhotoUploadPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const fileRef = useRef();
+  const cameraRef = useRef();
 
   const handleFile = (e) => {
     const file = e.target.files[0];
@@ -58,13 +59,22 @@ export default function PhotoUploadPage() {
 
       {/* Upload area */}
       {!preview ? (
-        <button
-          onClick={() => fileRef.current.click()}
-          className="w-full h-48 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center gap-3 text-gray-400 hover:border-tg-blue hover:text-tg-blue transition-colors"
-        >
-          <Camera size={40} />
-          <span className="font-medium">Нажмите чтобы загрузить фото</span>
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => cameraRef.current.click()}
+            className="flex-1 h-40 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center gap-3 text-gray-400 hover:border-tg-blue hover:text-tg-blue transition-colors"
+          >
+            <Camera size={36} />
+            <span className="font-medium text-sm">Камера</span>
+          </button>
+          <button
+            onClick={() => fileRef.current.click()}
+            className="flex-1 h-40 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center gap-3 text-gray-400 hover:border-tg-blue hover:text-tg-blue transition-colors"
+          >
+            <Image size={36} />
+            <span className="font-medium text-sm">Галерея</span>
+          </button>
+        </div>
       ) : (
         <div className="relative">
           <img
@@ -82,10 +92,17 @@ export default function PhotoUploadPage() {
       )}
 
       <input
-        ref={fileRef}
+        ref={cameraRef}
         type="file"
         accept="image/*"
         capture="environment"
+        onChange={handleFile}
+        className="hidden"
+      />
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
         onChange={handleFile}
         className="hidden"
       />

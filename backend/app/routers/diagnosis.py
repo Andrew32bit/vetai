@@ -105,10 +105,11 @@ async def analyze_photo(
             content_type=content_type,
         )
 
+        from urllib.parse import quote
         clinic_link = None
         if result.get("should_visit_vet") or result.get("severity") in ("medium", "high"):
             query = f"ветеринарная клиника {city}" if city else "ветеринарная клиника рядом"
-            clinic_link = f"https://yandex.ru/maps/?text={query.replace(' ', '+')}"
+            clinic_link = f"https://yandex.ru/maps/?text={quote(query)}"
 
         response = PhotoDiagnosisResponse(
             condition=result.get("condition", "Не определено"),
@@ -150,7 +151,7 @@ async def analyze_photo(
             description="Не удалось проанализировать фото. Попробуйте загрузить другое изображение.",
             recommendation="Рекомендуем показать питомца ветеринару для точной диагностики.",
             should_visit_vet=True,
-            clinic_link="https://yandex.ru/maps/?text=ветеринарная+клиника+рядом",
+            clinic_link="https://yandex.ru/maps/?text=%D0%B2%D0%B5%D1%82%D0%B5%D1%80%D0%B8%D0%BD%D0%B0%D1%80%D0%BD%D0%B0%D1%8F%20%D0%BA%D0%BB%D0%B8%D0%BD%D0%B8%D0%BA%D0%B0%20%D1%80%D1%8F%D0%B4%D0%BE%D0%BC",
         )
 
 
