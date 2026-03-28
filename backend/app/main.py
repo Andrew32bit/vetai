@@ -22,7 +22,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://web.telegram.org",
-        "https://andrewk.github.io",
+        "https://andrew32bit.github.io",
         "http://localhost:5173",  # Vite dev
         "http://localhost:5174",
         "http://localhost:3000",
