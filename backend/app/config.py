@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     TELEGRAM_WEBAPP_URL: str = ""
 
     # Database
-    DATABASE_URL: str = "sqlite+aiosqlite:///./vetai.db"
+    DATABASE_URL: str = "sqlite+aiosqlite:////data/vetai.db"
 
     # ML / AI — HuggingFace Inference API
     HF_API_TOKEN: str = ""

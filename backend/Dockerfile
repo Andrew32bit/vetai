@@ -9,6 +9,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ ./app/
 
+# Persistent data directory for SQLite
+RUN mkdir -p /data
+
 # HuggingFace Spaces uses port 7860
 EXPOSE 7860
 
