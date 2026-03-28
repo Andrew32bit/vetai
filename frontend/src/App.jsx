@@ -47,9 +47,13 @@ function AppContent() {
       localStorage.setItem("vetai_telegram_id", String(tgUser.id));
 
       try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+
         const res = await fetch(`${API_URL}/api/v1/users/auth`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
           body: JSON.stringify({
             telegram_id: tgUser.id,
             first_name: tgUser.first_name,
@@ -60,6 +64,7 @@ function AppContent() {
             platform: detectPlatform(),
           }),
         });
+        clearTimeout(timeout);
         const data = await res.json();
 
         if (data.is_new) {
@@ -120,7 +125,7 @@ function AppContent() {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <AppContent />
     </BrowserRouter>
   );
