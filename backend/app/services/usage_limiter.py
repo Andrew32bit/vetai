@@ -9,7 +9,7 @@ from sqlalchemy import select, func
 
 from app.models.database import async_session, UsageLog, User
 
-DAILY_LIMIT = 3
+DAILY_LIMIT = 10
 
 
 async def _get_today_count(telegram_id: int) -> int:
