@@ -59,9 +59,9 @@ export default function HomePage() {
   const remaining = Math.max(0, usageLimit - usageToday);
 
   return (
-    <div className="px-4 py-6">
+    <div className="px-4 py-3">
       {/* Greeting */}
-      <div className="mb-6">
+      <div className="mb-3">
         <h1 className="text-2xl font-bold text-gray-900">
           Привет{user.petName || (user.pets && user.pets[0]?.name) ? `, ${user.petName || user.pets[0]?.name}` : ""}! 🐾
         </h1>
@@ -69,12 +69,12 @@ export default function HomePage() {
       </div>
 
       {/* Beta banner with remaining requests */}
-      <div className="mb-4 px-3 py-2 rounded-xl bg-green-50 border border-green-200 text-center text-sm text-green-700">
+      <div className="mb-3 px-3 py-1.5 rounded-xl bg-green-50 border border-green-200 text-center text-sm text-green-700">
         Бета — бесплатно! Использовано: {usageToday}/{usageLimit}
       </div>
 
       {/* Action cards */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         {actions.map((action) => {
           const Icon = action.icon;
           return (
@@ -99,7 +99,7 @@ export default function HomePage() {
       </div>
 
       {/* Health tip */}
-      <div className="mt-6 p-4 rounded-2xl bg-blue-50 border border-blue-100">
+      <div className="mt-3 p-3 rounded-2xl bg-blue-50 border border-blue-100">
         <div className="text-sm font-semibold text-tg-blue mb-1">💡 Совет дня</div>
         <div className="text-sm text-gray-600">
           Регулярно проверяйте уши питомца — покраснение или запах могут указывать
@@ -108,7 +108,7 @@ export default function HomePage() {
       </div>
 
       {/* Feedback */}
-      <div className="mt-6">
+      <div className="mt-2">
         {!showFeedback ? (
           <button
             onClick={() => setShowFeedback(true)}
