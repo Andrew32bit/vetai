@@ -251,3 +251,60 @@ async def list_users(admin_key: str = Header(...)):
             })
 
     return {"users": users_list, "total": len(users_list)}
+
+
+# --- Feedback ---
+
+class FeedbackRequest(BaseModel):
+    message: str
+
+
+@router.post("/feedback")
+async def submit_feedback(
+    data: FeedbackRequest,
+    x_telegram_id: int = Header(...),
+):
+    """Save user feedback."""
+    async with async_session() as session:
+        result = await session.execute(
+            select(User.id).where(User.telegram_id == x_telegram_id)
+        )
+        user_id = result.scalar_one_or_none()
+        if user_id is None:
+            raise HTTPException(404, "User not found")
+
+        from app.models.database import Feedback
+        fb = Feedback(user_id=user_id, message=data.message)
+        session.add(fb)
+        await session.commit()
+
+    return {"ok": True}
+
+
+@router.get("/admin/feedback")
+async def list_feedback(admin_key: str = Header(...)):
+    """List all feedback."""
+    if admin_key != "vetai-admin-2026":
+        raise HTTPException(403, "Forbidden")
+
+    from app.models.database import Feedback
+    async with async_session() as session:
+        result = await session.execute(
+            select(Feedback, User.first_name, User.username)
+            .join(User, Feedback.user_id == User.id)
+            .order_by(Feedback.created_at.desc())
+        )
+        rows = result.all()
+
+    return {
+        "feedback": [
+            {
+                "id": fb.id,
+                "user": f"{name} (@{uname})" if uname else name,
+                "message": fb.message,
+                "created_at": fb.created_at.isoformat(),
+            }
+            for fb, name, uname in rows
+        ],
+        "total": len(rows),
+    }

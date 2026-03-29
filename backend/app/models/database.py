@@ -107,3 +107,12 @@ class UsageLog(Base):
     used_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="usage_logs")
+
+
+class Feedback(Base):
+    __tablename__ = "feedback"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    message = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)

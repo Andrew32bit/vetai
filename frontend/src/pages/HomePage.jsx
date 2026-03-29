@@ -33,6 +33,9 @@ export default function HomePage() {
   const user = JSON.parse(localStorage.getItem("vetai_user") || "{}");
   const [usageToday, setUsageToday] = useState(0);
   const [usageLimit, setUsageLimit] = useState(3);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackSent, setFeedbackSent] = useState(false);
 
   useEffect(() => {
     const fetchUsage = async () => {
@@ -105,16 +108,57 @@ export default function HomePage() {
       </div>
 
       {/* Feedback */}
-      <div className="mt-8 text-center text-xs text-gray-400">
-        Обратная связь:{" "}
-        <a
-          href="https://t.me/Andrew_Konstaninov"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline hover:text-gray-500"
-        >
-          @Andrew_Konstaninov
-        </a>
+      <div className="mt-6">
+        {!showFeedback ? (
+          <button
+            onClick={() => setShowFeedback(true)}
+            className="w-full text-center text-xs text-gray-400 py-2"
+          >
+            💬 Оставить отзыв или предложение
+          </button>
+        ) : (
+          <div className="p-4 rounded-2xl bg-gray-50 border border-gray-200">
+            <div className="text-sm font-semibold text-gray-700 mb-2">Обратная связь</div>
+            <textarea
+              value={feedbackText}
+              onChange={(e) => setFeedbackText(e.target.value)}
+              placeholder="Напишите ваш отзыв, вопрос или предложение..."
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-tg-blue focus:outline-none text-sm text-gray-900 resize-none"
+              rows={3}
+            />
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={async () => {
+                  if (!feedbackText.trim()) return;
+                  const telegramId = localStorage.getItem("vetai_telegram_id") || "12345";
+                  try {
+                    await fetch(`${API_URL}/api/v1/users/feedback`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json", "x-telegram-id": telegramId },
+                      body: JSON.stringify({ message: feedbackText.trim() }),
+                    });
+                    setFeedbackText("");
+                    setShowFeedback(false);
+                    setFeedbackSent(true);
+                    setTimeout(() => setFeedbackSent(false), 3000);
+                  } catch {}
+                }}
+                className="flex-1 bg-tg-blue text-white text-sm font-medium py-2 rounded-xl"
+              >
+                Отправить
+              </button>
+              <button
+                onClick={() => { setShowFeedback(false); setFeedbackText(""); }}
+                className="px-4 text-sm text-gray-400"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        )}
+        {feedbackSent && (
+          <div className="mt-2 text-center text-xs text-green-600">Спасибо за отзыв!</div>
+        )}
       </div>
     </div>
   );
