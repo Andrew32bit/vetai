@@ -100,7 +100,8 @@ export default function ChatPage() {
       // Extract URL from the message
       const urlMatch = msg.content.match(/(https:\/\/yandex\.ru\/maps\/[^\s]+)/);
       const url = urlMatch ? urlMatch[1] : null;
-      const textParts = msg.content.split(url || "---no-split---");
+      // Get text before URL, trim whitespace
+      const beforeUrl = url ? msg.content.split(url)[0].replace(/\n+/g, ' ').trim() : msg.content.trim();
 
       return (
         <div key={i} className="flex justify-start">
@@ -109,22 +110,21 @@ export default function ChatPage() {
               <MapPin size={16} />
               Рекомендация
             </div>
-            <div className="text-gray-700 whitespace-pre-line">
+            <div className="text-gray-700">
               {url ? (
                 <>
-                  {textParts[0]}
+                  <p className="mb-2">{beforeUrl}</p>
                   <a
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-tg-blue underline font-medium"
                   >
-                    Открыть карту клиник
+                    Найти клинику на карте
                   </a>
-                  {textParts[1]}
                 </>
               ) : (
-                msg.content
+                beforeUrl
               )}
             </div>
           </div>
