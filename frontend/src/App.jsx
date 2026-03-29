@@ -33,8 +33,18 @@ function AppContent() {
     WebApp.ready();
     WebApp.expand();
 
+    // Step 1: Check localStorage FIRST for instant start
+    const saved = localStorage.getItem("vetai_user");
+    const savedTgId = localStorage.getItem("vetai_telegram_id");
+
+    if (saved && savedTgId) {
+      // User already registered — show app immediately
+      setIsOnboarded(true);
+      setAuthLoading(false);
+    }
+
+    // Step 2: Auth in background (update user data, track login)
     const doAuth = async () => {
-      // Get telegram user data (with dev fallback)
       let tgUser;
       try {
         tgUser = WebApp.initDataUnsafe?.user;
@@ -43,12 +53,11 @@ function AppContent() {
         tgUser = { id: 12345, first_name: "Dev" };
       }
 
-      // Store telegram_id for all pages
       localStorage.setItem("vetai_telegram_id", String(tgUser.id));
 
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 8000);
+        const timeout = setTimeout(() => controller.abort(), 55000);
 
         const res = await fetch(`${API_URL}/api/v1/users/auth`, {
           method: "POST",
@@ -68,19 +77,25 @@ function AppContent() {
         const data = await res.json();
 
         if (data.is_new) {
+          // New user — show onboarding
           setIsOnboarded(false);
+          setAuthLoading(false);
         } else {
-          // Save user data from DB
+          // Existing user — update local data from DB
           localStorage.setItem("vetai_user", JSON.stringify(data.user));
-          setIsOnboarded(true);
+          if (!saved) {
+            // First time loading (no localStorage yet)
+            setIsOnboarded(true);
+            setAuthLoading(false);
+          }
         }
       } catch (err) {
         console.error("Auth error:", err);
-        // Fallback: check localStorage
-        const saved = localStorage.getItem("vetai_user");
-        setIsOnboarded(!!saved);
-      } finally {
-        setAuthLoading(false);
+        // If no localStorage and auth failed — still need to handle
+        if (!saved) {
+          setIsOnboarded(false);
+          setAuthLoading(false);
+        }
       }
     };
 
@@ -89,8 +104,9 @@ function AppContent() {
 
   if (authLoading || isOnboarded === null) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-gray-400 text-lg">Загрузка...</div>
+      <div className="flex flex-col items-center justify-center h-screen gap-3">
+        <div className="text-4xl">🐾</div>
+        <div className="text-gray-500 text-sm">Подключаемся...</div>
       </div>
     );
   }
