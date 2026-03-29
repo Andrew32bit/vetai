@@ -99,9 +99,20 @@ export default function LabResultsPage() {
             </div>
           )}
 
+          {result.diagnosis && (
+            <div className="p-4 rounded-2xl bg-yellow-50 border border-yellow-200">
+              <div className="font-bold text-yellow-700 mb-2">Предварительный диагноз</div>
+              <div className="text-sm text-gray-700">{result.diagnosis}</div>
+            </div>
+          )}
+
           <div className="p-4 rounded-2xl bg-blue-50 border border-blue-100">
             <div className="font-bold text-tg-blue mb-2">Заключение AI</div>
             <div className="text-sm text-gray-700">{result.summary}</div>
+          </div>
+
+          <div className="text-xs text-gray-400 text-center px-4">
+            Результаты AI носят предварительный характер. Обратитесь к ветеринарному врачу для точного диагноза.
           </div>
         </div>
       )}
