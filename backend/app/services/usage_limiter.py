@@ -64,3 +64,10 @@ async def get_remaining(telegram_id: int) -> int:
     count = await _get_today_count(telegram_id)
     limit = await _get_user_limit(telegram_id)
     return max(0, limit - count)
+
+
+async def get_usage_info(telegram_id: int) -> dict:
+    """Return usage_today and usage_limit for display."""
+    count = await _get_today_count(telegram_id)
+    limit = await _get_user_limit(telegram_id)
+    return {"usage_today": count, "usage_limit": limit}

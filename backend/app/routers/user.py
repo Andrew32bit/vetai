@@ -10,7 +10,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from app.models.database import async_session, User, Pet, UsageLog
-from app.services.usage_limiter import get_remaining, DAILY_LIMIT
+from app.services.usage_limiter import get_usage_info
 
 router = APIRouter()
 
@@ -66,7 +66,7 @@ async def auth_user(data: AuthRequest):
             await session.commit()
             await session.refresh(user)
 
-            usage_today = DAILY_LIMIT - await get_remaining(data.telegram_id)
+            usage = await get_usage_info(data.telegram_id)
 
             pets_list = [
                 {"id": p.id, "name": p.name, "species": p.species, "breed": p.breed}
@@ -83,8 +83,8 @@ async def auth_user(data: AuthRequest):
                     "city": user.city,
                     "pets": pets_list,
                 },
-                "usage_today": usage_today,
-                "usage_limit": DAILY_LIMIT,
+                "usage_today": usage["usage_today"],
+                "usage_limit": usage["usage_limit"],
             }
         else:
             # New user
@@ -160,7 +160,7 @@ async def get_current_user(x_telegram_id: int = Header(...)):
         if user is None:
             raise HTTPException(status_code=404, detail="User not found")
 
-        usage_today = DAILY_LIMIT - await get_remaining(x_telegram_id)
+        usage = await get_usage_info(x_telegram_id)
 
         pets_list = [
             {"id": p.id, "name": p.name, "species": p.species, "breed": p.breed}
@@ -174,8 +174,8 @@ async def get_current_user(x_telegram_id: int = Header(...)):
             "subscription_tier": user.subscription_tier,
             "city": user.city,
             "pets": pets_list,
-            "usage_today": usage_today,
-            "usage_limit": DAILY_LIMIT,
+            "usage_today": usage["usage_today"],
+            "usage_limit": usage["usage_limit"],
         }
 
 

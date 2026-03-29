@@ -3,16 +3,13 @@ Symptom chat: structured conversation with HuggingFace LLM.
 Collects symptoms → generates preliminary assessment → recommends clinic if urgent.
 """
 
-import json
 import logging
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-from sqlalchemy import select
 
 from app.services.hf_service import get_chat_response
 from app.services.usage_limiter import check_limit, increment, get_remaining
-from app.models.database import async_session, User, Diagnosis
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -158,31 +155,6 @@ async def send_message(
             urgency=parsed["urgency"],
             clinic_recommendation=clinic_rec,
         )
-
-        # Save chat diagnosis to DB
-        try:
-            async with async_session() as session:
-                user_result = await session.execute(
-                    select(User.id).where(User.telegram_id == x_telegram_id)
-                )
-                user_id = user_result.scalar_one_or_none()
-                if user_id is not None:
-                    diag = Diagnosis(
-                        user_id=user_id,
-                        type="chat",
-                        condition=parsed["assessment"] or "chat",
-                        severity=parsed["urgency"],
-                        result_json=json.dumps({
-                            "reply": parsed["reply"],
-                            "assessment": parsed["assessment"],
-                            "urgency": parsed["urgency"],
-                            "questions": parsed["questions"],
-                        }, ensure_ascii=False),
-                    )
-                    session.add(diag)
-                    await session.commit()
-        except Exception as save_err:
-            logger.error(f"Failed to save chat diagnosis: {save_err}")
 
         return response
 
