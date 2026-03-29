@@ -9,12 +9,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ ./app/
 
-# Persistent data directory for SQLite
-RUN mkdir -p /data
+EXPOSE 10000
 
-# HuggingFace Spaces uses port 7860
-EXPOSE 7860
-
-HEALTHCHECK --interval=30s --timeout=3s CMD curl -f http://localhost:7860/health || exit 1
-
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-10000}
