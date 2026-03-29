@@ -110,7 +110,7 @@ export default function OnboardingPage({ onComplete }) {
           <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 mb-4">
             <div className="text-sm font-semibold text-tg-blue mb-2">Дневной лимит:</div>
             <div className="text-sm text-gray-700">
-              3 запроса в день (фото + чат + анализы)
+              10 запросов в день (фото + чат + анализы)
             </div>
           </div>
           <p className="text-xs text-gray-400 mb-6">
