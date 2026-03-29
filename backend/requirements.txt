@@ -10,6 +10,9 @@ aiosqlite==0.20.0
 # AI / ML
 huggingface-hub>=0.25.0
 
+# PDF processing
+pymupdf==1.27.2.2
+
 # Utils
 python-multipart==0.0.12
 python-dotenv==1.0.1

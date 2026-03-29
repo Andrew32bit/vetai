@@ -3,7 +3,11 @@ import { Camera, Upload, Loader2 } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-const HINTS = ["чешется", "появилось недавно", "после еды", "после прогулки", "выпадает шерсть", "гноится"];
+const HINTS = [
+  "чешется", "рана", "опухоль/шишка", "выпадает шерсть",
+  "покраснение", "гноится", "хромает", "отёк",
+  "появилось недавно", "после еды", "после прогулки", "после укуса",
+];
 
 export default function PhotoUploadPage() {
   const [photo, setPhoto] = useState(null);

@@ -203,6 +203,19 @@ async def analyze_lab_results(
     file_bytes = await file.read()
     content_type = file.content_type or "image/jpeg"
 
+    # Convert PDF to image if needed
+    if content_type == "application/pdf" or (file.filename and file.filename.lower().endswith(".pdf")):
+        try:
+            import fitz
+            doc = fitz.open(stream=file_bytes, filetype="pdf")
+            page = doc[0]
+            pix = page.get_pixmap(dpi=200)
+            file_bytes = pix.tobytes("png")
+            content_type = "image/png"
+            doc.close()
+        except Exception as pdf_err:
+            logger.error(f"PDF conversion error: {pdf_err}")
+
     try:
         result = await interpret_lab_results_image(
             image_bytes=file_bytes,
