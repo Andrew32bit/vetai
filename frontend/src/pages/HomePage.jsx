@@ -103,6 +103,19 @@ export default function HomePage() {
           на отит. Загрузите фото для быстрой проверки!
         </div>
       </div>
+
+      {/* Feedback */}
+      <div className="mt-8 text-center text-xs text-gray-400">
+        Обратная связь:{" "}
+        <a
+          href="https://t.me/Andrew_Konstaninov"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-gray-500"
+        >
+          @Andrew_Konstaninov
+        </a>
+      </div>
     </div>
   );
 }
