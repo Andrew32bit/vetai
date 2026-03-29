@@ -98,21 +98,12 @@ export default function HomePage() {
         })}
       </div>
 
-      {/* Health tip */}
-      <div className="mt-6 p-4 rounded-2xl bg-blue-50 border border-blue-100">
-        <div className="text-sm font-semibold text-tg-blue mb-1">💡 Совет дня</div>
-        <div className="text-sm text-gray-600">
-          Регулярно проверяйте уши питомца — покраснение или запах могут указывать
-          на отит. Загрузите фото для быстрой проверки!
-        </div>
-      </div>
-
       {/* Feedback */}
-      <div className="mt-6">
+      <div className="mt-4">
         {!showFeedback ? (
           <button
             onClick={() => setShowFeedback(true)}
-            className="w-full text-center text-xs text-gray-400 py-2"
+            className="w-full py-3 rounded-2xl bg-white border border-gray-200 text-sm text-gray-600 font-medium"
           >
             💬 Оставить отзыв или предложение
           </button>
@@ -159,6 +150,15 @@ export default function HomePage() {
         {feedbackSent && (
           <div className="mt-2 text-center text-xs text-green-600">Спасибо за отзыв!</div>
         )}
+      </div>
+
+      {/* Health tip */}
+      <div className="mt-4 p-4 rounded-2xl bg-blue-50 border border-blue-100">
+        <div className="text-sm font-semibold text-tg-blue mb-1">💡 Совет дня</div>
+        <div className="text-sm text-gray-600">
+          Регулярно проверяйте уши питомца — покраснение или запах могут указывать
+          на отит. Загрузите фото для быстрой проверки!
+        </div>
       </div>
     </div>
   );
