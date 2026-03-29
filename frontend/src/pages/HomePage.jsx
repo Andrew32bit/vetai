@@ -59,18 +59,15 @@ export default function HomePage() {
   const remaining = Math.max(0, usageLimit - usageToday);
 
   return (
-    <div className="px-4 py-4">
-      {/* Greeting */}
-      <div className="mb-3">
-        <h1 className="text-2xl font-bold text-gray-900">
+    <div className="px-4 py-3">
+      {/* Greeting + beta */}
+      <div className="flex items-center justify-between mb-2">
+        <h1 className="text-xl font-bold text-gray-900">
           Привет{user.petName || (user.pets && user.pets[0]?.name) ? `, ${user.petName || user.pets[0]?.name}` : ""}! 🐾
         </h1>
-        <p className="text-gray-500 mt-1">Как здоровье вашего питомца?</p>
-      </div>
-
-      {/* Beta banner with remaining requests */}
-      <div className="mb-3 px-3 py-1.5 rounded-xl bg-green-50 border border-green-200 text-center text-xs text-green-700">
-        Бета — бесплатно! Использовано: {usageToday}/{usageLimit}
+        <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-lg">
+          {usageToday}/{usageLimit}
+        </span>
       </div>
 
       {/* Action cards */}
@@ -81,25 +78,33 @@ export default function HomePage() {
             <button
               key={action.path}
               onClick={() => navigate(action.path)}
-              className="w-full flex items-center gap-3 p-3 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow text-left"
+              className="w-full flex items-center gap-3 p-2.5 rounded-xl bg-white border border-gray-100 shadow-sm text-left"
             >
               <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center"
+                className="w-9 h-9 rounded-lg flex items-center justify-center"
                 style={{ background: `${action.color}15` }}
               >
-                <Icon size={20} color={action.color} />
+                <Icon size={18} color={action.color} />
               </div>
               <div>
-                <div className="font-semibold text-gray-900">{action.title}</div>
-                <div className="text-sm text-gray-500">{action.desc}</div>
+                <div className="font-semibold text-sm text-gray-900">{action.title}</div>
+                <div className="text-xs text-gray-500">{action.desc}</div>
               </div>
             </button>
           );
         })}
       </div>
 
+      {/* Health tip */}
+      <div className="mt-2 p-2.5 rounded-xl bg-blue-50 border border-blue-100">
+        <div className="text-xs text-gray-600">
+          <span className="font-semibold text-tg-blue">💡 </span>
+          Регулярно проверяйте уши питомца — покраснение или запах могут указывать на отит.
+        </div>
+      </div>
+
       {/* Feedback */}
-      <div className="mt-3">
+      <div className="mt-2">
         {!showFeedback ? (
           <button
             onClick={() => setShowFeedback(true)}
