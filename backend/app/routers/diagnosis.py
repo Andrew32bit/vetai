@@ -80,6 +80,7 @@ async def analyze_photo(
     photo: UploadFile = File(...),
     pet_id: Optional[int] = None,
     species: str = "питомца",
+    complaint: Optional[str] = None,
     city: Optional[str] = None,
     x_telegram_id: int = Header(...),
 ):
@@ -103,6 +104,7 @@ async def analyze_photo(
             image_bytes=image_bytes,
             pet_species=species,
             content_type=content_type,
+            complaint=complaint,
         )
 
         # Handle non-animal photos

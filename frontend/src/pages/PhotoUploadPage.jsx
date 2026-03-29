@@ -3,11 +3,15 @@ import { Camera, Upload, Loader2 } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+const HINTS = ["чешется", "появилось недавно", "после еды", "после прогулки", "выпадает шерсть", "гноится"];
+
 export default function PhotoUploadPage() {
   const [photo, setPhoto] = useState(null);
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [complaint, setComplaint] = useState("");
+  const [selectedHints, setSelectedHints] = useState([]);
   const fileRef = useRef();
 
   const handleFile = (e) => {
@@ -18,6 +22,12 @@ export default function PhotoUploadPage() {
     setResult(null);
   };
 
+  const toggleHint = (hint) => {
+    setSelectedHints((prev) =>
+      prev.includes(hint) ? prev.filter((h) => h !== hint) : [...prev, hint]
+    );
+  };
+
   const [limitError, setLimitError] = useState(null);
 
   const analyze = async () => {
@@ -26,8 +36,17 @@ export default function PhotoUploadPage() {
     setLimitError(null);
     try {
       const telegramId = localStorage.getItem("vetai_telegram_id") || "12345";
+      const user = JSON.parse(localStorage.getItem("vetai_user") || "{}");
+      const petSpecies = user.petType === "dog" ? "собаки" : user.petType === "cat" ? "кошки" : "питомца";
+
+      // Build context string from complaint + hints
+      const context = [complaint.trim(), ...selectedHints].filter(Boolean).join(", ");
+
       const form = new FormData();
       form.append("photo", photo);
+      form.append("species", petSpecies);
+      if (context) form.append("complaint", context);
+      if (user.city) form.append("city", user.city);
 
       const res = await fetch(`${API_URL}/api/v1/diagnosis/photo`, {
         method: "POST",
@@ -36,7 +55,7 @@ export default function PhotoUploadPage() {
       });
 
       if (res.status === 429) {
-        setLimitError("Лимит 3 запроса в день исчерпан. Попробуйте завтра.");
+        setLimitError("Дневной лимит исчерпан. Попробуйте завтра.");
         return;
       }
 
@@ -51,7 +70,7 @@ export default function PhotoUploadPage() {
 
   return (
     <div className="px-4 py-6">
-      <h1 className="text-xl font-bold mb-4 text-gray-900">Проверка по фото 📸</h1>
+      <h1 className="text-xl font-bold mb-4 text-gray-900">Проверка по фото</h1>
       <p className="text-sm text-gray-600 mb-6">
         Сфотографируйте проблемное место питомца. AI определит возможное заболевание.
       </p>
@@ -74,7 +93,7 @@ export default function PhotoUploadPage() {
             className="w-full h-48 object-cover rounded-2xl"
           />
           <button
-            onClick={() => { setPreview(null); setPhoto(null); setResult(null); }}
+            onClick={() => { setPreview(null); setPhoto(null); setResult(null); setComplaint(""); setSelectedHints([]); }}
             className="absolute top-2 right-2 bg-black/50 text-white w-8 h-8 rounded-full flex items-center justify-center"
           >
             ✕
@@ -90,15 +109,44 @@ export default function PhotoUploadPage() {
         className="hidden"
       />
 
+      {/* Complaint + hints — show after photo selected, before result */}
       {preview && !result && (
-        <button
-          onClick={analyze}
-          disabled={loading}
-          className="w-full mt-4 bg-tg-blue text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          {loading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />}
-          {loading ? "Анализируем..." : "Проверить"}
-        </button>
+        <>
+          <div className="mt-4">
+            <input
+              type="text"
+              value={complaint}
+              onChange={(e) => setComplaint(e.target.value)}
+              placeholder="Опишите проблему (необязательно)"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-tg-blue focus:outline-none text-sm text-gray-900"
+            />
+          </div>
+
+          <div className="mt-2 flex flex-wrap gap-2">
+            {HINTS.map((hint) => (
+              <button
+                key={hint}
+                onClick={() => toggleHint(hint)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  selectedHints.includes(hint)
+                    ? "bg-tg-blue text-white"
+                    : "bg-gray-100 text-gray-600"
+                }`}
+              >
+                {hint}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={analyze}
+            disabled={loading}
+            className="w-full mt-4 bg-tg-blue text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {loading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />}
+            {loading ? "Анализируем..." : "Проверить"}
+          </button>
+        </>
       )}
 
       {/* Limit error */}

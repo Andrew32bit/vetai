@@ -46,6 +46,7 @@ async def analyze_photo(
     image_bytes: bytes,
     pet_species: str,
     content_type: str = "image/jpeg",
+    complaint: str | None = None,
 ) -> dict:
     """Analyze pet photo using vision-language model."""
     settings = get_settings()
@@ -54,7 +55,9 @@ async def analyze_photo(
     b64_image = base64.b64encode(image_bytes).decode("utf-8")
     data_uri = f"data:{content_type};base64,{b64_image}"
 
-    prompt = f"""Ты — ветеринарный дерматолог. Проанализируй фото.
+    complaint_text = f"\nЖалоба владельца: {complaint}" if complaint else ""
+
+    prompt = f"""Ты — ветеринарный дерматолог. Проанализируй фото.{complaint_text}
 
 ШАГ 1: Определи, есть ли на фото животное.
 - Если на фото НЕТ животного (человек, предмет, еда, пейзаж и т.д.) — верни:
