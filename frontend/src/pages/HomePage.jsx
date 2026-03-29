@@ -56,12 +56,10 @@ export default function HomePage() {
     fetchUsage();
   }, []);
 
-  const remaining = Math.max(0, usageLimit - usageToday);
-
   return (
-    <div className="px-4 py-3 flex flex-col h-full">
-      {/* Greeting + beta */}
-      <div className="flex items-center justify-between mb-2">
+    <div className="px-4 py-3 flex flex-col h-full justify-between">
+      {/* Top: greeting */}
+      <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900">
           Привет{user.petName || (user.pets && user.pets[0]?.name) ? `, ${user.petName || user.pets[0]?.name}` : ""}! 🐾
         </h1>
@@ -70,57 +68,53 @@ export default function HomePage() {
         </span>
       </div>
 
-      {/* Action cards */}
-      <div className="flex-1 flex flex-col justify-center space-y-2">
-        {actions.map((action) => {
-          const Icon = action.icon;
-          return (
-            <button
-              key={action.path}
-              onClick={() => navigate(action.path)}
-              className="w-full flex items-center gap-3 p-2.5 rounded-xl bg-white border border-gray-100 shadow-sm text-left"
+      {/* Middle: action cards fill space */}
+      {actions.map((action) => {
+        const Icon = action.icon;
+        return (
+          <button
+            key={action.path}
+            onClick={() => navigate(action.path)}
+            className="w-full flex items-center gap-4 px-4 py-5 rounded-2xl bg-white border border-gray-100 shadow-sm text-left"
+          >
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: `${action.color}15` }}
             >
-              <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center"
-                style={{ background: `${action.color}15` }}
-              >
-                <Icon size={18} color={action.color} />
-              </div>
-              <div>
-                <div className="font-semibold text-sm text-gray-900">{action.title}</div>
-                <div className="text-xs text-gray-500">{action.desc}</div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+              <Icon size={24} color={action.color} />
+            </div>
+            <div>
+              <div className="font-semibold text-gray-900">{action.title}</div>
+              <div className="text-xs text-gray-500">{action.desc}</div>
+            </div>
+          </button>
+        );
+      })}
 
-      {/* Health tip */}
-      <div className="mt-2 p-2.5 rounded-xl bg-blue-50 border border-blue-100">
-        <div className="text-xs text-gray-600">
-          <span className="font-semibold text-tg-blue">💡 </span>
-          Регулярно проверяйте уши питомца — покраснение или запах могут указывать на отит.
+      {/* Bottom: tip + feedback */}
+      <div>
+        <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-100 mb-2">
+          <div className="text-xs text-gray-600">
+            <span className="font-semibold text-tg-blue">💡 </span>
+            Регулярно проверяйте уши питомца — покраснение или запах могут указывать на отит.
+          </div>
         </div>
-      </div>
 
-      {/* Feedback */}
-      <div className="mt-2">
         {!showFeedback ? (
           <button
             onClick={() => setShowFeedback(true)}
-            className="w-full py-2.5 rounded-2xl bg-white border border-gray-200 text-xs text-gray-500 font-medium"
+            className="w-full py-2 rounded-xl bg-white border border-gray-200 text-xs text-gray-500 font-medium"
           >
             💬 Оставить отзыв или предложение
           </button>
         ) : (
-          <div className="p-4 rounded-2xl bg-gray-50 border border-gray-200">
-            <div className="text-sm font-semibold text-gray-700 mb-2">Обратная связь</div>
+          <div className="p-3 rounded-xl bg-gray-50 border border-gray-200">
             <textarea
               value={feedbackText}
               onChange={(e) => setFeedbackText(e.target.value)}
-              placeholder="Напишите ваш отзыв, вопрос или предложение..."
-              className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-tg-blue focus:outline-none text-sm text-gray-900 resize-none"
-              rows={3}
+              placeholder="Ваш отзыв или предложение..."
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-tg-blue focus:outline-none text-sm text-gray-900 resize-none"
+              rows={2}
             />
             <div className="flex gap-2 mt-2">
               <button
@@ -139,13 +133,13 @@ export default function HomePage() {
                     setTimeout(() => setFeedbackSent(false), 3000);
                   } catch {}
                 }}
-                className="flex-1 bg-tg-blue text-white text-sm font-medium py-2 rounded-xl"
+                className="flex-1 bg-tg-blue text-white text-sm font-medium py-2 rounded-lg"
               >
                 Отправить
               </button>
               <button
                 onClick={() => { setShowFeedback(false); setFeedbackText(""); }}
-                className="px-4 text-sm text-gray-400"
+                className="px-3 text-sm text-gray-400"
               >
                 Отмена
               </button>
@@ -153,10 +147,9 @@ export default function HomePage() {
           </div>
         )}
         {feedbackSent && (
-          <div className="mt-2 text-center text-xs text-green-600">Спасибо за отзыв!</div>
+          <div className="mt-1 text-center text-xs text-green-600">Спасибо за отзыв!</div>
         )}
       </div>
-
     </div>
   );
 }
