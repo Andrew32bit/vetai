@@ -49,7 +49,7 @@ export default function LabResultsPage() {
     <div className="px-4 py-6">
       <h1 className="text-xl font-bold mb-4 text-gray-900">Загрузить анализы 📋</h1>
       <p className="text-sm text-gray-600 mb-6">
-        Загрузите фото или PDF с результатами анализов. AI распознает текст и найдёт отклонения.
+        Загрузите изображение или PDF. AI распознает текст и найдёт отклонения.
       </p>
 
       <button
