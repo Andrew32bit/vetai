@@ -56,65 +56,75 @@ export default function HomePage() {
     fetchUsage();
   }, []);
 
+  const remaining = Math.max(0, usageLimit - usageToday);
+
   return (
-    <div className="px-4 py-3 flex flex-col h-full justify-between">
-      {/* Top: greeting */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">
+    <div className="px-4 py-6">
+      {/* Greeting */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">
           Привет{user.petName || (user.pets && user.pets[0]?.name) ? `, ${user.petName || user.pets[0]?.name}` : ""}! 🐾
         </h1>
-        <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-lg">
-          {usageToday}/{usageLimit}
-        </span>
+        <p className="text-gray-500 mt-1">Как здоровье вашего питомца?</p>
       </div>
 
-      {/* Middle: action cards fill space */}
-      {actions.map((action) => {
-        const Icon = action.icon;
-        return (
-          <button
-            key={action.path}
-            onClick={() => navigate(action.path)}
-            className="w-full flex items-center gap-4 px-4 py-5 rounded-2xl bg-white border border-gray-100 shadow-sm text-left"
-          >
-            <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: `${action.color}15` }}
+      {/* Beta banner with remaining requests */}
+      <div className="mb-4 px-3 py-2 rounded-xl bg-green-50 border border-green-200 text-center text-sm text-green-700">
+        Бета — бесплатно! Использовано: {usageToday}/{usageLimit}
+      </div>
+
+      {/* Action cards */}
+      <div className="space-y-3">
+        {actions.map((action) => {
+          const Icon = action.icon;
+          return (
+            <button
+              key={action.path}
+              onClick={() => navigate(action.path)}
+              className="w-full flex items-center gap-4 p-4 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow text-left"
             >
-              <Icon size={24} color={action.color} />
-            </div>
-            <div>
-              <div className="font-semibold text-gray-900">{action.title}</div>
-              <div className="text-xs text-gray-500">{action.desc}</div>
-            </div>
-          </button>
-        );
-      })}
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center"
+                style={{ background: `${action.color}15` }}
+              >
+                <Icon size={24} color={action.color} />
+              </div>
+              <div>
+                <div className="font-semibold text-gray-900">{action.title}</div>
+                <div className="text-sm text-gray-500">{action.desc}</div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
 
-      {/* Bottom: tip + feedback */}
-      <div>
-        <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-100 mb-2">
-          <div className="text-xs text-gray-600">
-            <span className="font-semibold text-tg-blue">💡 </span>
-            Регулярно проверяйте уши питомца — покраснение или запах могут указывать на отит.
-          </div>
+      {/* Health tip */}
+      <div className="mt-6 p-4 rounded-2xl bg-blue-50 border border-blue-100">
+        <div className="text-sm font-semibold text-tg-blue mb-1">💡 Совет дня</div>
+        <div className="text-sm text-gray-600">
+          Регулярно проверяйте уши питомца — покраснение или запах могут указывать
+          на отит. Загрузите фото для быстрой проверки!
         </div>
+      </div>
 
+      {/* Feedback */}
+      <div className="mt-6">
         {!showFeedback ? (
           <button
             onClick={() => setShowFeedback(true)}
-            className="w-full py-2 rounded-xl bg-white border border-gray-200 text-xs text-gray-500 font-medium"
+            className="w-full text-center text-xs text-gray-400 py-2"
           >
             💬 Оставить отзыв или предложение
           </button>
         ) : (
-          <div className="p-3 rounded-xl bg-gray-50 border border-gray-200">
+          <div className="p-4 rounded-2xl bg-gray-50 border border-gray-200">
+            <div className="text-sm font-semibold text-gray-700 mb-2">Обратная связь</div>
             <textarea
               value={feedbackText}
               onChange={(e) => setFeedbackText(e.target.value)}
-              placeholder="Ваш отзыв или предложение..."
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-tg-blue focus:outline-none text-sm text-gray-900 resize-none"
-              rows={2}
+              placeholder="Напишите ваш отзыв, вопрос или предложение..."
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-tg-blue focus:outline-none text-sm text-gray-900 resize-none"
+              rows={3}
             />
             <div className="flex gap-2 mt-2">
               <button
@@ -133,13 +143,13 @@ export default function HomePage() {
                     setTimeout(() => setFeedbackSent(false), 3000);
                   } catch {}
                 }}
-                className="flex-1 bg-tg-blue text-white text-sm font-medium py-2 rounded-lg"
+                className="flex-1 bg-tg-blue text-white text-sm font-medium py-2 rounded-xl"
               >
                 Отправить
               </button>
               <button
                 onClick={() => { setShowFeedback(false); setFeedbackText(""); }}
-                className="px-3 text-sm text-gray-400"
+                className="px-4 text-sm text-gray-400"
               >
                 Отмена
               </button>
@@ -147,7 +157,7 @@ export default function HomePage() {
           </div>
         )}
         {feedbackSent && (
-          <div className="mt-1 text-center text-xs text-green-600">Спасибо за отзыв!</div>
+          <div className="mt-2 text-center text-xs text-green-600">Спасибо за отзыв!</div>
         )}
       </div>
     </div>
