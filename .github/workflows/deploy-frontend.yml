@@ -32,7 +32,7 @@ jobs:
       - name: Install & Build
         working-directory: frontend
         env:
-          VITE_API_URL: https://kombatdrew-vetai-backend.hf.space
+          VITE_API_URL: https://vetai-backend-app.onrender.com
         run: |
           npm ci
           npm run build
