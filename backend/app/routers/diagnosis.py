@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy import select
 
-from app.services.hf_service import analyze_photo as hf_analyze_photo, interpret_lab_results
+from app.services.hf_service import analyze_photo as hf_analyze_photo, interpret_lab_results_image
 from app.services.usage_limiter import check_limit, increment, get_remaining
 from app.models.database import async_session, User, Diagnosis
 
@@ -198,19 +198,18 @@ async def analyze_lab_results(
         )
     await increment(x_telegram_id, "lab")
 
-    # TODO: integrate PaddleOCR for real text extraction
-    # For now, use a placeholder OCR step
     file_bytes = await file.read()
-    extracted_text = f"[OCR не подключён — файл {file.filename}, {len(file_bytes)} байт]"
+    content_type = file.content_type or "image/jpeg"
 
     try:
-        result = await interpret_lab_results(
-            extracted_text=extracted_text,
+        result = await interpret_lab_results_image(
+            image_bytes=file_bytes,
             pet_species=species,
+            content_type=content_type,
         )
 
         response = LabResultsResponse(
-            extracted_text=extracted_text,
+            extracted_text=result.get("extracted_text", ""),
             parsed_values=result.get("parsed_values", {}),
             anomalies=result.get("anomalies", []),
             summary=result.get("summary", "Не удалось интерпретировать результаты."),

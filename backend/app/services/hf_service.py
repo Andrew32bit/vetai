@@ -122,32 +122,52 @@ async def analyze_photo(
     }
 
 
-async def interpret_lab_results(
-    extracted_text: str,
+async def interpret_lab_results_image(
+    image_bytes: bytes,
     pet_species: str,
-    pet_age_months: int | None = None,
+    content_type: str = "image/jpeg",
 ) -> dict:
-    """Interpret lab results text using chat model."""
+    """Read lab results from image using Vision model and interpret them."""
     settings = get_settings()
-    client = _get_client()
+    client = _get_client(provider=settings.HF_VISION_PROVIDER)
 
-    prompt = f"""Проанализируй результаты анализов домашнего животного.
-Вид: {pet_species}
-{f'Возраст: {pet_age_months} мес' if pet_age_months else ''}
+    b64_image = base64.b64encode(image_bytes).decode("utf-8")
+    data_uri = f"data:{content_type};base64,{b64_image}"
 
-Текст анализа (из OCR):
-{extracted_text}
+    prompt = f"""Ты — ветеринарный лаборант. На фото результаты анализов {pet_species}.
 
-Верни JSON:
-{{"parsed_values": {{"название_показателя": "значение", ...}}, "anomalies": ["описание отклонения 1", ...], "summary": "краткое резюме на русском"}}"""
+ШАГ 1: Прочитай ВСЕ значения с фото (названия показателей и их числовые значения).
+ШАГ 2: Определи, какие показатели выходят за пределы нормы для {pet_species}.
+ШАГ 3: Дай краткое заключение на русском языке.
 
-    response = client.chat.completions.create(
-        model=settings.HF_CHAT_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=1024,
-    )
+Отвечай СТРОГО на русском. Ответь в формате JSON:
+{{"extracted_text": "весь распознанный текст с фото", "parsed_values": {{"показатель": "значение (норма: X-Y)", ...}}, "anomalies": ["описание отклонения 1", ...], "summary": "заключение на русском"}}"""
 
-    raw_text = response.choices[0].message.content
+    raw_text = None
+    for attempt in range(3):
+        try:
+            response = client.chat.completions.create(
+                model=settings.HF_VISION_MODEL,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "image_url", "image_url": {"url": data_uri}},
+                            {"type": "text", "text": prompt},
+                        ],
+                    }
+                ],
+                max_tokens=2048,
+            )
+            raw_text = response.choices[0].message.content
+            break
+        except Exception as e:
+            logger.warning(f"Vision API attempt {attempt+1}/3 failed: {e}")
+            if attempt < 2:
+                time.sleep(2)
+
+    if raw_text is None:
+        return {"extracted_text": "", "parsed_values": {}, "anomalies": [], "summary": "Не удалось распознать анализы. Попробуйте загрузить более чёткое фото."}
 
     try:
         json_match = re.search(r'\{.*\}', raw_text, re.DOTALL)
@@ -156,4 +176,4 @@ async def interpret_lab_results(
     except (json.JSONDecodeError, AttributeError):
         pass
 
-    return {"parsed_values": {}, "anomalies": [], "summary": raw_text}
+    return {"extracted_text": raw_text, "parsed_values": {}, "anomalies": [], "summary": raw_text}
