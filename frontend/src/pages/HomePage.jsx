@@ -59,7 +59,7 @@ export default function HomePage() {
   const remaining = Math.max(0, usageLimit - usageToday);
 
   return (
-    <div className="px-4 py-3">
+    <div className="px-4 py-3 flex flex-col h-full">
       {/* Greeting + beta */}
       <div className="flex items-center justify-between mb-2">
         <h1 className="text-xl font-bold text-gray-900">
@@ -71,7 +71,7 @@ export default function HomePage() {
       </div>
 
       {/* Action cards */}
-      <div className="space-y-2">
+      <div className="flex-1 flex flex-col justify-center space-y-2">
         {actions.map((action) => {
           const Icon = action.icon;
           return (
