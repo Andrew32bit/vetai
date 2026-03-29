@@ -42,7 +42,18 @@ app.include_router(chat.router, prefix="/api/v1/chat", tags=["chat"])
 
 @app.on_event("startup")
 async def startup():
-    """Initialize DB, load ML models."""
+    """Restore DB from backup, initialize tables, start periodic backup."""
+    import asyncio
+    from app.services.db_backup import restore_db, periodic_backup
     from app.models.database import init_db
+
+    await restore_db()
     await init_db()
-    # TODO: load EfficientNet / YOLOv8 model weights
+    asyncio.create_task(periodic_backup())
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    """Final backup on shutdown."""
+    from app.services.db_backup import backup_db
+    await backup_db()
