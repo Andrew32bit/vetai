@@ -32,7 +32,7 @@ export default function HomePage() {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("vetai_user") || "{}");
   const [usageToday, setUsageToday] = useState(0);
-  const usageLimit = 3;
+  const [usageLimit, setUsageLimit] = useState(3);
 
   useEffect(() => {
     const fetchUsage = async () => {
@@ -44,6 +44,7 @@ export default function HomePage() {
         if (res.ok) {
           const data = await res.json();
           setUsageToday(data.usage_today || 0);
+          if (data.usage_limit) setUsageLimit(data.usage_limit);
         }
       } catch (err) {
         console.error("Failed to fetch usage:", err);
@@ -52,7 +53,7 @@ export default function HomePage() {
     fetchUsage();
   }, []);
 
-  const remaining = usageLimit - usageToday;
+  const remaining = Math.max(0, usageLimit - usageToday);
 
   return (
     <div className="px-4 py-6">
@@ -66,7 +67,7 @@ export default function HomePage() {
 
       {/* Beta banner with remaining requests */}
       <div className="mb-4 px-3 py-2 rounded-xl bg-green-50 border border-green-200 text-center text-sm text-green-700">
-        Бета — бесплатно! Осталось запросов: {remaining}/{usageLimit}
+        Бета — бесплатно! Использовано: {usageToday}/{usageLimit}
       </div>
 
       {/* Action cards */}

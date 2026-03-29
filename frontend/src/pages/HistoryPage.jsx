@@ -71,14 +71,14 @@ export default function HistoryPage() {
               {item.severity && (
                 <span
                   className={`text-xs font-medium px-2 py-1 rounded-full ${
-                    item.severity === "high"
+                    item.severity === "emergency" || item.severity === "high"
                       ? "bg-red-100 text-red-600"
                       : item.severity === "medium"
                       ? "bg-yellow-100 text-yellow-700"
                       : "bg-green-100 text-green-600"
                   }`}
                 >
-                  {item.severity}
+                  {item.severity === "emergency" ? "Экстренно" : item.severity === "high" ? "Срочно" : item.severity === "medium" ? "Внимание" : "Норма"}
                 </span>
               )}
             </div>
