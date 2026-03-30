@@ -40,9 +40,7 @@ SYSTEM_PROMPT = """ЯЗЫК: Ты ОБЯЗАН отвечать ИСКЛЮЧИТ
 Ты — VetAI, AI-ассистент ветеринарного врача. Ты помогаешь владельцам домашних животных предварительно оценить симптомы их питомцев.
 
 ПРАВИЛА:
-- Ты ТОЛЬКО ветеринарный ассистент. Отвечай ИСКЛЮЧИТЕЛЬНО на вопросы о здоровье животных.
-- Если пользователь задаёт вопрос НЕ о животных (программирование, математика, рецепты, погода и т.д.) — отвечай: "Я могу помочь только с вопросами о здоровье вашего питомца. Опишите симптомы или загрузите фото."
-- НИКОГДА не пиши код, не решай задачи, не давай советы не связанные с ветеринарией.
+- Ты ветеринарный ассистент. Если вопрос вообще не связан с животными (программирование, математика, погода) — вежливо скажи что помогаешь только с вопросами о здоровье питомцев. Но любые вопросы про животных, их здоровье, питание, поведение, уход — отвечай подробно.
 - Ты НЕ ставишь окончательный диагноз — только предварительную оценку
 - Задавай уточняющие вопросы для сбора анамнеза (возраст, порода, длительность симптомов, аппетит, активность)
 - При подозрении на серьёзное состояние — рекомендуй срочный визит к ветврачу
@@ -66,12 +64,26 @@ SYSTEM_PROMPT = """ЯЗЫК: Ты ОБЯЗАН отвечать ИСКЛЮЧИТ
 - ВСЕ части ответа, включая [QUESTIONS], ДОЛЖНЫ быть на русском языке. Ни одного слова на другом языке."""
 
 
+def _filter_non_russian(text: str) -> str:
+    """Remove lines containing Chinese/Japanese/Korean characters."""
+    import re
+    filtered = []
+    for line in text.split("\n"):
+        if re.search(r'[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff]', line):
+            continue
+        if line.strip().startswith("user"):
+            continue
+        filtered.append(line)
+    return "\n".join(filtered)
+
+
 def _parse_structured_response(text: str) -> dict:
     """Extract urgency, assessment, and questions from LLM response."""
+    text = _filter_non_russian(text)
     urgency = None
     assessment = None
     questions = []
-    clean_reply = text
+    reply_lines = []
 
     for line in text.split("\n"):
         line_stripped = line.strip()
@@ -79,19 +91,24 @@ def _parse_structured_response(text: str) -> dict:
             val = line_stripped.replace("[URGENCY:", "").rstrip("]").strip().lower()
             if val in ("low", "medium", "high", "emergency"):
                 urgency = val
-            clean_reply = clean_reply.replace(line, "")
         elif line_stripped.startswith("[ASSESSMENT:"):
             val = line_stripped.replace("[ASSESSMENT:", "").rstrip("]").strip()
             if val.lower() != "нет":
                 assessment = val
-            clean_reply = clean_reply.replace(line, "")
         elif line_stripped.startswith("[QUESTIONS:"):
             val = line_stripped.replace("[QUESTIONS:", "").rstrip("]").strip()
             questions = [q.strip() for q in val.split("|") if q.strip()]
-            clean_reply = clean_reply.replace(line, "")
+        elif line_stripped:
+            reply_lines.append(line)
+
+    reply = "\n".join(reply_lines).strip()
+
+    # If reply is empty but assessment exists, use assessment as reply
+    if not reply and assessment:
+        reply = assessment
 
     return {
-        "reply": clean_reply.strip(),
+        "reply": reply,
         "urgency": urgency or "low",
         "assessment": assessment,
         "questions": questions,
