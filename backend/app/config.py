@@ -15,18 +15,13 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "sqlite+aiosqlite:///./vetai.db"
 
-    # ML / AI — HuggingFace Inference API
+    # Groq API
+    GROQ_API_KEY: str = ""
+    GROQ_CHAT_MODEL: str = "llama-3.3-70b-versatile"
+    GROQ_VISION_MODEL: str = "meta-llama/llama-4-scout-17b-16e-instruct"
+
+    # HuggingFace (for DB backup)
     HF_API_TOKEN: str = ""
-    HF_CHAT_MODEL: str = "Qwen/Qwen2.5-7B-Instruct"
-    HF_VISION_MODEL: str = "Qwen/Qwen2.5-VL-72B-Instruct"
-    HF_PROVIDER: str = "together"  # HF Inference Provider (chat)
-    HF_VISION_PROVIDER: str = "hyperbolic"  # HF Inference Provider (vision)
-
-    # HuggingFace Hub storage for uploads
-    HF_REPO_ID: str = ""  # e.g. "username/vetai-uploads"
-
-    # OCR
-    OCR_ENGINE: str = "paddleocr"  # paddleocr | tesseract
 
     class Config:
         env_file = ".env"

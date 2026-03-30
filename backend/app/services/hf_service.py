@@ -1,6 +1,6 @@
 """
-HuggingFace Inference API integration for veterinary chat and photo analysis.
-Models: Qwen2.5-7B-Instruct (chat), Qwen2.5-VL-7B-Instruct (vision).
+Groq API integration for veterinary chat and photo/lab analysis.
+Models: Llama 3.3 70B (chat), Llama 4 Scout (vision).
 """
 
 import base64
@@ -8,32 +8,29 @@ import json
 import re
 import time
 import logging
-from huggingface_hub import InferenceClient
+from groq import Groq
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
 
-def _get_client(provider: str | None = None) -> InferenceClient:
+def _get_client() -> Groq:
     settings = get_settings()
-    return InferenceClient(
-        provider=provider or settings.HF_PROVIDER,
-        api_key=settings.HF_API_TOKEN,
-    )
+    return Groq(api_key=settings.GROQ_API_KEY)
 
 
 async def get_chat_response(
     messages: list[dict],
     system_prompt: str,
 ) -> str:
-    """Send messages to HuggingFace chat model and get response."""
+    """Send messages to Groq chat model and get response."""
     settings = get_settings()
     client = _get_client()
 
     full_messages = [{"role": "system", "content": system_prompt}] + messages
 
     response = client.chat.completions.create(
-        model=settings.HF_CHAT_MODEL,
+        model=settings.GROQ_CHAT_MODEL,
         messages=full_messages,
         max_tokens=1024,
         temperature=0.7,
@@ -48,9 +45,9 @@ async def analyze_photo(
     content_type: str = "image/jpeg",
     complaint: str | None = None,
 ) -> dict:
-    """Analyze pet photo using vision-language model."""
+    """Analyze pet photo using Groq vision model."""
     settings = get_settings()
-    client = _get_client(provider=settings.HF_VISION_PROVIDER)
+    client = _get_client()
 
     b64_image = base64.b64encode(image_bytes).decode("utf-8")
     data_uri = f"data:{content_type};base64,{b64_image}"
@@ -80,12 +77,12 @@ async def analyze_photo(
 Ответь СТРОГО в формате JSON:
 {{"condition": "диагноз на русском", "confidence": 0.0-1.0, "severity": "low|medium|high", "description": "описание на русском", "recommendation": "рекомендации на русском", "should_visit_vet": true|false}}"""
 
-    # Retry up to 3 times — Hyperbolic can return 500 intermittently
+    # Retry up to 3 times
     raw_text = None
     for attempt in range(3):
         try:
             response = client.chat.completions.create(
-                model=settings.HF_VISION_MODEL,
+                model=settings.GROQ_VISION_MODEL,
                 messages=[
                     {
                         "role": "user",
@@ -130,9 +127,9 @@ async def interpret_lab_results_image(
     pet_species: str,
     content_type: str = "image/jpeg",
 ) -> dict:
-    """Read lab results from image using Vision model and interpret them."""
+    """Read lab results from image using Groq vision model."""
     settings = get_settings()
-    client = _get_client(provider=settings.HF_VISION_PROVIDER)
+    client = _get_client()
 
     b64_image = base64.b64encode(image_bytes).decode("utf-8")
     data_uri = f"data:{content_type};base64,{b64_image}"
@@ -141,17 +138,17 @@ async def interpret_lab_results_image(
 
 ШАГ 1: Прочитай ВСЕ значения с фото (названия показателей и их числовые значения).
 ШАГ 2: Определи, какие показатели выходят за пределы нормы для {pet_species}.
-ШАГ 3: На основе совокупности отклонений предположи возможный диагноз или состояние (например: воспалительный процесс, инфекция, анемия, почечная недостаточность, заболевание печени и т.д.).
+ШАГ 3: На основе совокупности отклонений предположи возможный диагноз или состояние.
 ШАГ 4: Дай развёрнутое заключение на русском языке. В конце ОБЯЗАТЕЛЬНО добавь: "Данные результаты носят предварительный характер. Для точного диагноза и назначения лечения обратитесь к ветеринарному врачу."
 
 Отвечай СТРОГО на русском. Ответь в формате JSON:
-{{"extracted_text": "распознанный текст", "parsed_values": {{"показатель": "значение (норма: X-Y)", ...}}, "anomalies": ["отклонение 1", ...], "diagnosis": "предполагаемый диагноз/состояние", "summary": "развёрнутое заключение с рекомендацией обратиться к ветеринару"}}"""
+{{"extracted_text": "распознанный текст", "parsed_values": {{"показатель": "значение (норма: X-Y)", ...}}, "anomalies": ["отклонение 1", ...], "diagnosis": "предполагаемый диагноз", "summary": "развёрнутое заключение с рекомендацией обратиться к ветеринару"}}"""
 
     raw_text = None
     for attempt in range(3):
         try:
             response = client.chat.completions.create(
-                model=settings.HF_VISION_MODEL,
+                model=settings.GROQ_VISION_MODEL,
                 messages=[
                     {
                         "role": "user",
