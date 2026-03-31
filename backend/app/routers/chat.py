@@ -185,8 +185,9 @@ async def send_message(
         import traceback
         error_detail = traceback.format_exc()
         logger.error(f"Chat API error: {error_detail}")
+        # Temporarily show error for debugging
         return ChatResponse(
-            reply="Извините, произошла ошибка при обработке запроса. Попробуйте ещё раз.",
+            reply=f"Извините, произошла ошибка: {str(e)[:300]}",
             follow_up_questions=[],
             preliminary_assessment=None,
             urgency=None,
