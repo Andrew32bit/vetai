@@ -182,7 +182,9 @@ async def send_message(
         return response
 
     except Exception as e:
-        logger.error(f"HuggingFace API error: {e}")
+        import traceback
+        error_detail = traceback.format_exc()
+        logger.error(f"Chat API error: {error_detail}")
         return ChatResponse(
             reply="Извините, произошла ошибка при обработке запроса. Попробуйте ещё раз.",
             follow_up_questions=[],
@@ -190,3 +192,43 @@ async def send_message(
             urgency=None,
             clinic_recommendation=None,
         )
+
+
+@router.get("/debug")
+async def debug_check():
+    """Temporary debug endpoint to diagnose prod issues."""
+    import os
+    results = {}
+
+    # Check env vars
+    results["GROQ_API_KEY"] = "set" if os.environ.get("GROQ_API_KEY") else "MISSING"
+    results["CLAUDE_API_KEY"] = "set" if os.environ.get("CLAUDE_API_KEY") else "MISSING"
+
+    # Check imports
+    try:
+        from groq import Groq
+        results["groq_import"] = "ok"
+    except Exception as e:
+        results["groq_import"] = str(e)
+
+    try:
+        import anthropic
+        results["anthropic_import"] = "ok"
+    except Exception as e:
+        results["anthropic_import"] = str(e)
+
+    # Try Groq
+    try:
+        from app.config import get_settings
+        settings = get_settings()
+        client = Groq(api_key=settings.GROQ_API_KEY)
+        resp = client.chat.completions.create(
+            model=settings.GROQ_CHAT_MODEL,
+            messages=[{"role": "user", "content": "hi"}],
+            max_tokens=10,
+        )
+        results["groq_call"] = "ok: " + resp.choices[0].message.content[:50]
+    except Exception as e:
+        results["groq_call"] = str(e)[:200]
+
+    return results
