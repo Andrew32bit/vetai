@@ -2,7 +2,7 @@
 SQLAlchemy async models for VetAI.
 """
 
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text, text
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 from datetime import datetime
@@ -17,9 +17,14 @@ Base = declarative_base()
 
 
 async def init_db():
-    """Create all tables if they don't exist."""
+    """Create all tables if they don't exist, and migrate schema."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Migrate: add 'provider' column to usage_log if missing
+        try:
+            await conn.execute(text("ALTER TABLE usage_log ADD COLUMN provider VARCHAR(20)"))
+        except Exception:
+            pass  # Column already exists
 
 
 async def get_session():
