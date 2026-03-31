@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy import select
 
+from app.services import hf_service
 from app.services.hf_service import analyze_photo as hf_analyze_photo, interpret_lab_results_image
 from app.services.usage_limiter import check_limit, increment, get_remaining
 from app.models.database import async_session, User, Diagnosis
@@ -59,7 +60,7 @@ async def _save_diagnosis(
 class PhotoDiagnosisResponse(BaseModel):
     condition: str
     confidence: float
-    severity: str  # "low" | "medium" | "high"
+    severity: str  # "низкая" | "средняя" | "высокая"
     description: str
     recommendation: str
     should_visit_vet: bool
@@ -94,8 +95,6 @@ async def analyze_photo(
                 "remaining": remaining,
             },
         )
-    await increment(x_telegram_id, "photo")
-
     try:
         image_bytes = await photo.read()
         content_type = photo.content_type or "image/jpeg"
@@ -106,24 +105,25 @@ async def analyze_photo(
             content_type=content_type,
             complaint=complaint,
         )
+        await increment(x_telegram_id, "photo", provider="groq")
 
         # Handle non-animal photos
-        if result.get("condition") == "not_animal":
+        if result.get("condition") == "не_животное":
             return PhotoDiagnosisResponse(
-                condition="not_animal",
+                condition="не_животное",
                 confidence=0.0,
-                severity="low",
+                severity="низкая",
                 description="На фото не обнаружено животное.",
                 recommendation="Пожалуйста, загрузите фото вашего питомца.",
                 should_visit_vet=False,
             )
 
         # Handle healthy animal photos
-        if result.get("condition") == "healthy":
+        if result.get("condition") == "здоров":
             return PhotoDiagnosisResponse(
-                condition="healthy",
+                condition="здоров",
                 confidence=float(result.get("confidence", 0.9)),
-                severity="low",
+                severity="низкая",
                 description="На фото животное выглядит здоровым, видимых проблем не обнаружено.",
                 recommendation="Если вас что-то беспокоит, попробуйте загрузить фото проблемного участка крупным планом.",
                 should_visit_vet=False,
@@ -131,14 +131,14 @@ async def analyze_photo(
 
         from urllib.parse import quote
         clinic_link = None
-        if result.get("should_visit_vet") or result.get("severity") in ("medium", "high"):
+        if result.get("should_visit_vet") or result.get("severity") in ("средняя", "высокая"):
             query = f"ветеринарная клиника {city}" if city else "ветеринарная клиника рядом"
             clinic_link = f"https://yandex.ru/maps/?text={quote(query)}"
 
         response = PhotoDiagnosisResponse(
             condition=result.get("condition", "Не определено"),
             confidence=float(result.get("confidence", 0.0)),
-            severity=result.get("severity", "medium"),
+            severity=result.get("severity", "средняя"),
             description=result.get("description", ""),
             recommendation=result.get("recommendation", "Рекомендуем консультацию ветеринара."),
             should_visit_vet=result.get("should_visit_vet", True),
@@ -171,7 +171,7 @@ async def analyze_photo(
         return PhotoDiagnosisResponse(
             condition="Ошибка анализа",
             confidence=0.0,
-            severity="medium",
+            severity="средняя",
             description="Не удалось проанализировать фото. Попробуйте загрузить другое изображение.",
             recommendation="Рекомендуем показать питомца ветеринару для точной диагностики.",
             should_visit_vet=True,
@@ -198,8 +198,6 @@ async def analyze_lab_results(
                 "remaining": remaining,
             },
         )
-    await increment(x_telegram_id, "lab")
-
     file_bytes = await file.read()
     content_type = file.content_type or "image/jpeg"
 
@@ -222,6 +220,7 @@ async def analyze_lab_results(
             pet_species=species,
             content_type=content_type,
         )
+        await increment(x_telegram_id, "lab", provider="groq")
 
         response = LabResultsResponse(
             extracted_text=result.get("extracted_text", ""),

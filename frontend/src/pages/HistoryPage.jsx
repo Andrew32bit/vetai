@@ -78,14 +78,14 @@ export default function HistoryPage() {
                 {item.severity && (
                   <span
                     className={`text-xs font-medium px-2 py-1 rounded-full shrink-0 ${
-                      item.severity === "emergency" || item.severity === "high"
+                      item.severity === "экстренная" || item.severity === "высокая"
                         ? "bg-red-100 text-red-600"
-                        : item.severity === "medium"
+                        : item.severity === "средняя"
                         ? "bg-yellow-100 text-yellow-700"
                         : "bg-green-100 text-green-600"
                     }`}
                   >
-                    {item.severity === "emergency" ? "Экстренно" : item.severity === "high" ? "Срочно" : item.severity === "medium" ? "Внимание" : "Норма"}
+                    {item.severity === "экстренная" ? "Экстренно" : item.severity === "высокая" ? "Срочно" : item.severity === "средняя" ? "Внимание" : "Норма"}
                   </span>
                 )}
                 <span className={`text-gray-400 text-xs transition-transform ${isOpen ? "rotate-180" : ""}`}>▼</span>

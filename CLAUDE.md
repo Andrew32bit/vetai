@@ -7,10 +7,16 @@ Telegram Mini App for AI-powered pet health diagnosis (Russian market).
 Three core features: photo analysis (CV), lab results OCR, symptom chat (LLM).
 Ответ агента должен быть всегда на русском языке.
 
+## Telegram Bot
+- **Bot:** @vetai_app_bot (ID: 8517858349)
+- **Mini App:** Telegram Mini App через @vetai_app_bot
+- **Канал:** @vetai_channel (для маркетинга)
+
 ## Tech Stack
 - **Backend:** Python 3.12 + FastAPI + SQLAlchemy (async) + SQLite (dev) / PostgreSQL (prod)
 - **Frontend:** React 18 + Vite + Tailwind CSS + @twa-dev/sdk (Telegram Mini App)
-- **ML:** EfficientNet-B4 (photo classification), PaddleOCR (lab results), Claude API (chat)
+- **AI Chat:** Groq (Llama 3.3 70B) → Claude Sonnet fallback при 429
+- **AI Vision:** Groq (Llama 4 Scout) → Claude Vision fallback при 429
 - **Storage:** Yandex Cloud S3 for uploads
 - **Deployment:** Docker → Yandex Cloud
 
@@ -42,9 +48,11 @@ Routers (/api/v1/*)  →  Services  →  ML/Claude  →  DB Models
 
 - **Config** (`app/config.py`): Pydantic settings from `.env`, `@lru_cache` singleton via `get_settings()`
 - **Routers** (`app/routers/`): API endpoints — `user.py`, `diagnosis.py`, `chat.py`, `health.py`
-- **Services** (`app/services/claude_service.py`): Anthropic SDK wrapper — `get_chat_response()` and `interpret_lab_results()`
-- **ML** (`app/ml/`): `photo_classifier.py` (EfficientNet-B4 singleton), `ocr_service.py` (PaddleOCR/Tesseract singleton)
-- **Models** (`app/models/database.py`): All SQLAlchemy models in one file — `User`, `Pet`, `Diagnosis`, `ChatSession`
+- **Services** (`app/services/hf_service.py`): Groq + Claude fallback — `get_chat_response()`, `analyze_photo()`, `interpret_lab_results_image()`. Автоматическое переключение Groq→Claude при rate limit (429). Трекинг провайдера в `last_provider`.
+- **Services** (`app/services/claude_service.py`): Прямой Claude API wrapper (не используется в основном потоке)
+- **Services** (`app/services/usage_limiter.py`): Лимит запросов на пользователя (10/день), трекинг провайдера (groq/claude)
+- **ML** (`app/ml/`): `photo_classifier.py` (EfficientNet-B4 заглушка), `ocr_service.py` (PaddleOCR/Tesseract заглушка)
+- **Models** (`app/models/database.py`): All SQLAlchemy models — `User`, `Pet`, `Diagnosis`, `ChatSession`, `UsageLog`, `Feedback`
 
 Auth: Telegram `x-telegram-id` header (initData hash validation not yet implemented).
 API versioning: all routes under `/api/v1/`.
@@ -66,13 +74,22 @@ JSON columns for flexible data: `result_json`, `messages_json`.
 
 ## Implementation Status
 
-Most endpoints and ML services are **stubs/placeholders** with TODO markers. Key unimplemented pieces:
-- DB operations (no actual inserts/queries in routers yet)
-- S3 file upload
-- CV model inference & OCR extraction
+### Работает
+- Chat (Groq Llama 70B + Claude Sonnet fallback) — ветеринарный чат с русскими метками (низкая/средняя/высокая/экстренная)
+- Photo diagnosis (Groq Llama Scout + Claude Vision fallback) — анализ фото с конкретным диагнозом
+- Lab results OCR (Groq Vision + Claude Vision fallback) — расшифровка анализов из фото/PDF
+- Usage limiter (10 запросов/день) с трекингом провайдера
+- Admin stats endpoint (/api/v1/users/admin/stats)
+- DB operations (user auth, diagnosis save, usage logging)
+- Все метки на русском (не_животное, здоров, низкая/средняя/высокая/экстренная)
+
+### Не реализовано
+- S3 file upload (фото хранятся только в памяти)
 - Telegram initData auth validation
 - Payment integration (YooKassa / Telegram Stars)
-- Subscription limit enforcement
+- Subscription limit enforcement (все на beta tier)
+- Реферальная механика
+- Push-уведомления
 
 ## Important Notes
 - **Language:** All UI text and AI responses must be in Russian

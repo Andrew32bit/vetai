@@ -9,7 +9,7 @@ from typing import Optional
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
-from app.models.database import async_session, User, Pet, UsageLog
+from app.models.database import async_session, User, Pet, UsageLog, Diagnosis
 from app.services.usage_limiter import get_usage_info
 
 router = APIRouter()
@@ -307,4 +307,96 @@ async def list_feedback(admin_key: str = Header(...)):
             for fb, name, uname in rows
         ],
         "total": len(rows),
+    }
+
+
+@router.get("/admin/stats")
+async def get_stats(admin_key: str = Header(...)):
+    """Сводная аналитика: пользователи, запросы, провайдеры, фичи."""
+    if admin_key != "vetai-admin-2026":
+        raise HTTPException(403, "Forbidden")
+
+    today = date.today().isoformat()
+
+    async with async_session() as session:
+        # Всего пользователей
+        total_users = (await session.execute(
+            select(func.count(User.id))
+        )).scalar() or 0
+
+        # Новые пользователи сегодня
+        new_today = (await session.execute(
+            select(func.count(User.id)).where(func.date(User.created_at) == today)
+        )).scalar() or 0
+
+        # Активные сегодня (сделали хотя бы 1 запрос)
+        active_today = (await session.execute(
+            select(func.count(func.distinct(UsageLog.user_id)))
+            .where(func.date(UsageLog.used_at) == today)
+        )).scalar() or 0
+
+        # Запросы сегодня
+        requests_today = (await session.execute(
+            select(func.count(UsageLog.id)).where(func.date(UsageLog.used_at) == today)
+        )).scalar() or 0
+
+        # Запросы всего
+        requests_total = (await session.execute(
+            select(func.count(UsageLog.id))
+        )).scalar() or 0
+
+        # По фичам сегодня
+        features_today_rows = (await session.execute(
+            select(UsageLog.feature, func.count(UsageLog.id))
+            .where(func.date(UsageLog.used_at) == today)
+            .group_by(UsageLog.feature)
+        )).all()
+        features_today = {f: c for f, c in features_today_rows}
+
+        # По провайдерам сегодня
+        providers_today_rows = (await session.execute(
+            select(UsageLog.provider, func.count(UsageLog.id))
+            .where(func.date(UsageLog.used_at) == today)
+            .group_by(UsageLog.provider)
+        )).all()
+        providers_today = {(p or "unknown"): c for p, c in providers_today_rows}
+
+        # По провайдерам всего
+        providers_total_rows = (await session.execute(
+            select(UsageLog.provider, func.count(UsageLog.id))
+            .group_by(UsageLog.provider)
+        )).all()
+        providers_total = {(p or "unknown"): c for p, c in providers_total_rows}
+
+        # Запросы за последние 7 дней (по дням)
+        from datetime import timedelta
+        week_ago = (date.today() - timedelta(days=6)).isoformat()
+        daily_rows = (await session.execute(
+            select(func.date(UsageLog.used_at), func.count(UsageLog.id))
+            .where(func.date(UsageLog.used_at) >= week_ago)
+            .group_by(func.date(UsageLog.used_at))
+            .order_by(func.date(UsageLog.used_at))
+        )).all()
+        daily = {str(d): c for d, c in daily_rows}
+
+        # Диагнозы всего
+        diagnoses_total = (await session.execute(
+            select(func.count(Diagnosis.id))
+        )).scalar() or 0
+
+    return {
+        "users": {
+            "total": total_users,
+            "new_today": new_today,
+            "active_today": active_today,
+        },
+        "requests": {
+            "today": requests_today,
+            "total": requests_total,
+            "by_feature_today": features_today,
+            "by_provider_today": providers_today,
+            "by_provider_total": providers_total,
+            "daily_7d": daily,
+        },
+        "diagnoses_total": diagnoses_total,
     }

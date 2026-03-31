@@ -19,16 +19,16 @@ class PhotoClassifier:
     def __init__(self, model_path: Optional[str] = None):
         self.model = None
         self.labels = [
-            "healthy",
-            "dermatitis",
-            "fungal_infection",
-            "ear_infection",
-            "eye_infection",
-            "flea_allergy",
-            "hotspot",
-            "mange",
-            "tumor",
-            "wound",
+            "здоров",
+            "дерматит",
+            "грибковая_инфекция",
+            "отит",
+            "глазная_инфекция",
+            "аллергия_на_блох",
+            "мокнущая_экзема",
+            "демодекоз",
+            "новообразование",
+            "рана",
         ]
 
     async def load_model(self, model_path: str):
@@ -52,9 +52,9 @@ class PhotoClassifier:
 
         # Placeholder
         return {
-            "condition": "dermatitis",
+            "condition": "дерматит",
             "confidence": 0.87,
-            "severity": "medium",
+            "severity": "средняя",
             "description": "Обнаружены признаки аллергического дерматита",
             "recommendation": "Рекомендуется визит к ветеринару-дерматологу",
             "should_visit_vet": True,

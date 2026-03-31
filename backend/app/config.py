@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     GROQ_CHAT_MODEL: str = "llama-3.3-70b-versatile"
     GROQ_VISION_MODEL: str = "meta-llama/llama-4-scout-17b-16e-instruct"
 
+    # Claude API (fallback when Groq rate-limited)
+    CLAUDE_API_KEY: str = ""
+    CLAUDE_MODEL: str = "claude-sonnet-4-20250514"
+
     # HuggingFace (for DB backup)
     HF_API_TOKEN: str = ""
 

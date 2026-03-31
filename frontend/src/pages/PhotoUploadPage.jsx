@@ -164,7 +164,7 @@ export default function PhotoUploadPage() {
       )}
 
       {/* Result */}
-      {result && result.condition === "not_animal" ? (
+      {result && result.condition === "не_животное" ? (
         <div className="mt-4 p-4 rounded-2xl bg-orange-50 border border-orange-200 shadow-sm text-center">
           <span className="font-bold text-lg text-orange-600">Животное не найдено</span>
           <p className="text-sm text-orange-700 mt-2">
@@ -177,14 +177,14 @@ export default function PhotoUploadPage() {
             <span className="font-bold text-lg text-gray-900">{result.condition}</span>
             <span
               className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                result.severity === "high"
+                result.severity === "высокая"
                   ? "bg-red-100 text-red-600"
-                  : result.severity === "medium"
+                  : result.severity === "средняя"
                   ? "bg-yellow-100 text-yellow-700"
                   : "bg-green-100 text-green-600"
               }`}
             >
-              {result.severity === "high" ? "Срочно" : result.severity === "medium" ? "Внимание" : "Норма"}
+              {result.severity === "высокая" ? "Срочно" : result.severity === "средняя" ? "Внимание" : "Норма"}
             </span>
           </div>
           <p className="text-sm text-gray-600 mb-3">{result.description}</p>

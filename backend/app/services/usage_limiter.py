@@ -44,7 +44,7 @@ async def check_limit(telegram_id: int) -> bool:
     return count < limit
 
 
-async def increment(telegram_id: int, feature: str) -> None:
+async def increment(telegram_id: int, feature: str, provider: str | None = None) -> None:
     """Record a usage event for the user."""
     async with async_session() as session:
         # Find user_id by telegram_id
@@ -54,7 +54,7 @@ async def increment(telegram_id: int, feature: str) -> None:
         user_id = result.scalar()
         if user_id is None:
             return
-        log = UsageLog(user_id=user_id, feature=feature, used_at=datetime.utcnow())
+        log = UsageLog(user_id=user_id, feature=feature, provider=provider, used_at=datetime.utcnow())
         session.add(log)
         await session.commit()
 

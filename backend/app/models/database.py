@@ -104,6 +104,7 @@ class UsageLog(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     feature = Column(String(20), nullable=False)  # "photo" | "chat" | "lab"
+    provider = Column(String(20), nullable=True)  # "groq" | "claude" | None
     used_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="usage_logs")
