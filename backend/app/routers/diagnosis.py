@@ -15,6 +15,7 @@ from sqlalchemy import select
 from app.services import hf_service
 from app.services.hf_service import analyze_photo as hf_analyze_photo, interpret_lab_results_image
 from app.services.usage_limiter import check_limit, increment, get_remaining
+from app.services.alerting import send_alert
 from app.models.database import async_session, User, Diagnosis
 
 router = APIRouter()
@@ -168,6 +169,12 @@ async def analyze_photo(
 
     except Exception as e:
         logger.error(f"Photo analysis error: {e}")
+        send_alert(
+            error_type="photo_error",
+            error_message=str(e),
+            user_telegram_id=x_telegram_id,
+            feature="photo",
+        )
         return PhotoDiagnosisResponse(
             condition="Ошибка анализа",
             confidence=0.0,
@@ -249,6 +256,12 @@ async def analyze_lab_results(
 
     except Exception as e:
         logger.error(f"Lab results analysis error: {e}")
+        send_alert(
+            error_type="lab_error",
+            error_message=str(e),
+            user_telegram_id=x_telegram_id,
+            feature="lab_results",
+        )
         return LabResultsResponse(
             extracted_text=extracted_text,
             parsed_values={},

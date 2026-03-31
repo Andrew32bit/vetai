@@ -11,6 +11,7 @@ from typing import Optional
 from app.services import hf_service
 from app.services.hf_service import get_chat_response
 from app.services.usage_limiter import check_limit, increment, get_remaining
+from app.services.alerting import send_alert
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -190,6 +191,12 @@ async def send_message(
         import traceback
         error_detail = traceback.format_exc()
         logger.error(f"Chat API error: {error_detail}")
+        send_alert(
+            error_type="chat_error",
+            error_message=str(e),
+            user_telegram_id=x_telegram_id,
+            feature="chat",
+        )
         return ChatResponse(
             reply="Извините, произошла ошибка при обработке запроса. Попробуйте ещё раз.",
             follow_up_questions=[],

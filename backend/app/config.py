@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     CLAUDE_API_KEY: str = ""
     CLAUDE_MODEL: str = "claude-sonnet-4-20250514"
 
+    # Alerting
+    ADMIN_TELEGRAM_ID: int = 418149698  # Andrew
+
     # HuggingFace (for DB backup)
     HF_API_TOKEN: str = ""
 

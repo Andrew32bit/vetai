@@ -11,6 +11,7 @@ import time
 import logging
 from groq import Groq
 from app.config import get_settings
+from app.services.alerting import send_alert
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +128,7 @@ async def get_chat_response(
         if "429" in str(e) or "rate_limit" in str(e).lower():
             _groq_chat_limited_until = time.time() + 300
             logger.warning("Groq chat rate-limited, switching to Claude for 5 min")
+            send_alert(error_type="groq_rate_limit", error_message="Groq chat лимит исчерпан, переключение на Claude", feature="chat")
             last_provider = "claude"
             return await _claude_chat_fallback(messages, system_prompt)
         raise
