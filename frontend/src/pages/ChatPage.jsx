@@ -60,7 +60,9 @@ export default function ChatPage() {
         },
         body: JSON.stringify({
           message: userMsg.content,
-          history: messages.map((m) => ({ role: m.role, content: m.content })),
+          history: messages
+            .filter((m) => m.role === "user" || m.role === "assistant")
+            .map((m) => ({ role: m.role, content: m.content })),
           city: user.city || null,
         }),
       });
