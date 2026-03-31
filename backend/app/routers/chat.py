@@ -154,8 +154,13 @@ async def send_message(
                 "remaining": remaining,
             },
         )
-    # Build conversation history for the model
-    messages = [{"role": m.role, "content": m.content} for m in request.history]
+    # Build conversation history for the model (only valid roles)
+    valid_roles = {"user", "assistant"}
+    messages = [
+        {"role": m.role, "content": m.content}
+        for m in request.history
+        if m.role in valid_roles
+    ]
     messages.append({"role": "user", "content": request.message})
 
     try:
@@ -185,9 +190,8 @@ async def send_message(
         import traceback
         error_detail = traceback.format_exc()
         logger.error(f"Chat API error: {error_detail}")
-        # Temporarily show error for debugging
         return ChatResponse(
-            reply=f"Извините, произошла ошибка: {str(e)[:300]}",
+            reply="Извините, произошла ошибка при обработке запроса. Попробуйте ещё раз.",
             follow_up_questions=[],
             preliminary_assessment=None,
             urgency=None,
