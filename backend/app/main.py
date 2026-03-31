@@ -50,6 +50,21 @@ async def startup():
     await restore_db()
     await init_db()
     asyncio.create_task(periodic_backup())
+    asyncio.create_task(_keep_alive())
+
+
+async def _keep_alive():
+    """Ping self every 10 min to prevent Render free tier from sleeping."""
+    import asyncio
+    import urllib.request
+    import logging
+    logger = logging.getLogger(__name__)
+    while True:
+        await asyncio.sleep(600)  # 10 minutes
+        try:
+            urllib.request.urlopen("https://vetai-backend-app.onrender.com/health", timeout=10)
+        except Exception as e:
+            logger.debug(f"Keep-alive ping failed: {e}")
 
 
 @app.on_event("shutdown")
