@@ -9,6 +9,7 @@ import LabResultsPage from "./pages/LabResultsPage";
 import ChatPage from "./pages/ChatPage";
 import HistoryPage from "./pages/HistoryPage";
 import BottomNav from "./components/BottomNav";
+import { t } from "./i18n";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -32,6 +33,17 @@ function AppContent() {
     // Init Telegram Mini App
     WebApp.ready();
     WebApp.expand();
+
+    // Detect language from Telegram
+    try {
+      const langCode = WebApp.initDataUnsafe?.user?.language_code || "";
+      const lang = langCode.startsWith("ru") ? "ru" : "en";
+      localStorage.setItem("vetai_language", lang);
+    } catch {
+      if (!localStorage.getItem("vetai_language")) {
+        localStorage.setItem("vetai_language", "ru");
+      }
+    }
 
     // Step 1: Check localStorage FIRST for instant start
     const saved = localStorage.getItem("vetai_user");
@@ -106,7 +118,7 @@ function AppContent() {
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-3">
         <div className="text-4xl">🐾</div>
-        <div className="text-gray-500 text-sm">Подключаемся...</div>
+        <div className="text-gray-500 text-sm">{t("connectingDisplay")}</div>
       </div>
     );
   }

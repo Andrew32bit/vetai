@@ -1,16 +1,8 @@
 import { useState, useRef } from "react";
 import { Camera, Upload, Loader2 } from "lucide-react";
+import { t, getLang } from "../i18n";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-
-const HINTS = [
-  "чешется", "рана", "опухоль/шишка", "выпадает шерсть",
-  "покраснение", "гноится", "хромает", "отёк",
-  "перхоть", "корки", "пятна", "облысение",
-  "слезятся глаза", "воспаление уха", "неприятный запах",
-  "появилось недавно", "не заживает", "увеличивается",
-  "после еды", "после прогулки", "после укуса", "после купания",
-];
 
 export default function PhotoUploadPage() {
   const [photo, setPhoto] = useState(null);
@@ -20,6 +12,8 @@ export default function PhotoUploadPage() {
   const [complaint, setComplaint] = useState("");
   const [selectedHints, setSelectedHints] = useState([]);
   const fileRef = useRef();
+
+  const hints = t("hints");
 
   const handleFile = (e) => {
     const file = e.target.files[0];
@@ -44,7 +38,10 @@ export default function PhotoUploadPage() {
     try {
       const telegramId = localStorage.getItem("vetai_telegram_id") || "12345";
       const user = JSON.parse(localStorage.getItem("vetai_user") || "{}");
-      const petSpecies = user.petType === "dog" ? "собаки" : user.petType === "cat" ? "кошки" : "питомца";
+      const language = getLang();
+      const petSpecies = language === "en"
+        ? (user.petType === "dog" ? "dog" : user.petType === "cat" ? "cat" : "pet")
+        : (user.petType === "dog" ? "собаки" : user.petType === "cat" ? "кошки" : "питомца");
 
       // Build context string from complaint + hints
       const context = [complaint.trim(), ...selectedHints].filter(Boolean).join(", ");
@@ -52,6 +49,7 @@ export default function PhotoUploadPage() {
       const form = new FormData();
       form.append("photo", photo);
       form.append("species", petSpecies);
+      form.append("language", language);
       if (context) form.append("complaint", context);
       if (user.city) form.append("city", user.city);
 
@@ -62,7 +60,7 @@ export default function PhotoUploadPage() {
       });
 
       if (res.status === 429) {
-        setLimitError("Дневной лимит исчерпан. Попробуйте завтра.");
+        setLimitError(t("photoLimitExhausted"));
         return;
       }
 
@@ -75,11 +73,13 @@ export default function PhotoUploadPage() {
     }
   };
 
+  const isNotAnimal = result && (result.condition === "не_животное" || result.condition === "not_animal");
+
   return (
     <div className="px-4 py-6">
-      <h1 className="text-xl font-bold mb-4 text-gray-900">Проверка по фото</h1>
+      <h1 className="text-xl font-bold mb-4 text-gray-900">{t("photoTitle")}</h1>
       <p className="text-sm text-gray-600 mb-6">
-        Сфотографируйте проблемное место питомца. AI определит возможное заболевание.
+        {t("photoSubtitle")}
       </p>
 
       {/* Upload area */}
@@ -89,8 +89,8 @@ export default function PhotoUploadPage() {
           className="w-full h-48 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center gap-3 text-gray-400 hover:border-tg-blue hover:text-tg-blue transition-colors bg-white"
         >
           <Camera size={40} />
-          <span className="font-medium text-sm text-gray-900">Загрузить фото</span>
-          <span className="text-xs text-gray-400">Камера или галерея</span>
+          <span className="font-medium text-sm text-gray-900">{t("photoUploadButton")}</span>
+          <span className="text-xs text-gray-400">{t("photoCameraOrGallery")}</span>
         </button>
       ) : (
         <div className="relative">
@@ -124,13 +124,13 @@ export default function PhotoUploadPage() {
               type="text"
               value={complaint}
               onChange={(e) => setComplaint(e.target.value)}
-              placeholder="Опишите проблему (необязательно)"
+              placeholder={t("photoComplaintPlaceholder")}
               className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-tg-blue focus:outline-none text-sm text-gray-900"
             />
           </div>
 
           <div className="mt-2 flex flex-wrap gap-2">
-            {HINTS.map((hint) => (
+            {hints.map((hint) => (
               <button
                 key={hint}
                 onClick={() => toggleHint(hint)}
@@ -151,7 +151,7 @@ export default function PhotoUploadPage() {
             className="w-full mt-4 bg-tg-blue text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {loading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />}
-            {loading ? "Анализируем..." : "Проверить"}
+            {loading ? t("photoAnalyzing") : t("photoCheck")}
           </button>
         </>
       )}
@@ -164,11 +164,11 @@ export default function PhotoUploadPage() {
       )}
 
       {/* Result */}
-      {result && result.condition === "не_животное" ? (
+      {isNotAnimal ? (
         <div className="mt-4 p-4 rounded-2xl bg-orange-50 border border-orange-200 shadow-sm text-center">
-          <span className="font-bold text-lg text-orange-600">Животное не найдено</span>
+          <span className="font-bold text-lg text-orange-600">{t("photoNoAnimal")}</span>
           <p className="text-sm text-orange-700 mt-2">
-            Пожалуйста, загрузите фото вашего питомца
+            {t("photoNoAnimalDesc")}
           </p>
         </div>
       ) : result && (
@@ -177,20 +177,20 @@ export default function PhotoUploadPage() {
             <span className="font-bold text-lg text-gray-900">{result.condition}</span>
             <span
               className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                result.severity === "высокая"
+                result.severity === "высокая" || result.severity === "high"
                   ? "bg-red-100 text-red-600"
-                  : result.severity === "средняя"
+                  : result.severity === "средняя" || result.severity === "medium"
                   ? "bg-yellow-100 text-yellow-700"
                   : "bg-green-100 text-green-600"
               }`}
             >
-              {result.severity === "высокая" ? "Срочно" : result.severity === "средняя" ? "Внимание" : "Норма"}
+              {(result.severity === "высокая" || result.severity === "high") ? t("photoUrgent") : (result.severity === "средняя" || result.severity === "medium") ? t("photoAttention") : t("photoNormal")}
             </span>
           </div>
           <p className="text-sm text-gray-600 mb-3">{result.description}</p>
           <p className="text-sm font-medium text-tg-blue">{result.recommendation}</p>
           <div className="mt-3 text-xs text-gray-400">
-            Уверенность: {Math.round(result.confidence * 100)}%
+            {t("photoConfidence")}: {Math.round(result.confidence * 100)}%
           </div>
         </div>
       )}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Camera, FileText, MessageCircle, Clock } from "lucide-react";
+import { t } from "../i18n";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -9,16 +10,16 @@ const typeIcons = {
   chat: MessageCircle,
 };
 
-const typeLabels = {
-  photo: "Фото",
-  lab_results: "Анализы",
-  chat: "Чат",
-};
-
 export default function HistoryPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState(null);
+
+  const typeLabels = {
+    photo: t("historyPhoto"),
+    lab_results: t("historyLab"),
+    chat: t("historyChat"),
+  };
 
   useEffect(() => {
     const telegramId = localStorage.getItem("vetai_telegram_id") || "12345";
@@ -34,7 +35,7 @@ export default function HistoryPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full text-gray-400">
-        Загрузка...
+        {t("historyLoading")}
       </div>
     );
   }
@@ -43,17 +44,32 @@ export default function HistoryPage() {
     return (
       <div className="flex flex-col items-center justify-center h-full text-gray-400 px-6">
         <Clock size={48} className="mb-4" />
-        <div className="text-lg font-medium">Пока пусто</div>
+        <div className="text-lg font-medium">{t("historyEmpty")}</div>
         <div className="text-sm text-center mt-2">
-          Здесь будут сохраняться результаты проверок вашего питомца
+          {t("historyEmptyDesc")}
         </div>
       </div>
     );
   }
 
+  const getSeverityLabel = (severity) => {
+    if (severity === "экстренная" || severity === "emergency") return t("historyEmergency");
+    if (severity === "высокая" || severity === "high") return t("historyUrgent");
+    if (severity === "средняя" || severity === "medium") return t("historyAttention");
+    return t("historyNormal");
+  };
+
+  const getSeverityClass = (severity) => {
+    if (severity === "экстренная" || severity === "высокая" || severity === "emergency" || severity === "high")
+      return "bg-red-100 text-red-600";
+    if (severity === "средняя" || severity === "medium")
+      return "bg-yellow-100 text-yellow-700";
+    return "bg-green-100 text-green-600";
+  };
+
   return (
     <div className="px-4 py-6">
-      <h1 className="text-xl font-bold mb-4 text-gray-900">История проверок</h1>
+      <h1 className="text-xl font-bold mb-4 text-gray-900">{t("historyTitle")}</h1>
       <div className="space-y-3">
         {items.map((item, i) => {
           const Icon = typeIcons[item.type] || Clock;
@@ -77,15 +93,9 @@ export default function HistoryPage() {
                 </div>
                 {item.severity && (
                   <span
-                    className={`text-xs font-medium px-2 py-1 rounded-full shrink-0 ${
-                      item.severity === "экстренная" || item.severity === "высокая"
-                        ? "bg-red-100 text-red-600"
-                        : item.severity === "средняя"
-                        ? "bg-yellow-100 text-yellow-700"
-                        : "bg-green-100 text-green-600"
-                    }`}
+                    className={`text-xs font-medium px-2 py-1 rounded-full shrink-0 ${getSeverityClass(item.severity)}`}
                   >
-                    {item.severity === "экстренная" ? "Экстренно" : item.severity === "высокая" ? "Срочно" : item.severity === "средняя" ? "Внимание" : "Норма"}
+                    {getSeverityLabel(item.severity)}
                   </span>
                 )}
                 <span className={`text-gray-400 text-xs transition-transform ${isOpen ? "rotate-180" : ""}`}>▼</span>
@@ -94,21 +104,21 @@ export default function HistoryPage() {
                 <div className="px-4 pb-4 pt-0 text-sm text-gray-700 border-t border-gray-50 space-y-2">
                   {/* Photo diagnosis results */}
                   {result.description && (
-                    <div><span className="font-medium text-gray-500">Описание:</span> {result.description}</div>
+                    <div><span className="font-medium text-gray-500">{t("historyDescription")}</span> {result.description}</div>
                   )}
                   {result.recommendation && (
-                    <div><span className="font-medium text-gray-500">Рекомендация:</span> {result.recommendation}</div>
+                    <div><span className="font-medium text-gray-500">{t("historyRecommendation")}</span> {result.recommendation}</div>
                   )}
                   {result.confidence != null && (
-                    <div><span className="font-medium text-gray-500">Уверенность:</span> {Math.round(result.confidence * 100)}%</div>
+                    <div><span className="font-medium text-gray-500">{t("historyConfidence")}</span> {Math.round(result.confidence * 100)}%</div>
                   )}
                   {/* Lab results */}
                   {result.summary && (
-                    <div><span className="font-medium text-gray-500">Итог:</span> {result.summary}</div>
+                    <div><span className="font-medium text-gray-500">{t("historySummary")}</span> {result.summary}</div>
                   )}
                   {result.anomalies && result.anomalies.length > 0 && (
                     <div>
-                      <span className="font-medium text-gray-500">Отклонения:</span>
+                      <span className="font-medium text-gray-500">{t("historyAnomalies")}</span>
                       <ul className="list-disc list-inside mt-1">
                         {result.anomalies.map((a, j) => (
                           <li key={j}>{typeof a === "string" ? a : a.name || JSON.stringify(a)}</li>

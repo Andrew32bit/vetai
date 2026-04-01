@@ -1,16 +1,19 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, Loader2, MapPin, Trash2 } from "lucide-react";
+import { t, getLang } from "../i18n";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-const INITIAL_MESSAGES = [
-  {
-    role: "assistant",
-    content: "Здравствуйте! Я AI-ветеринар VetAI. Опишите симптомы вашего питомца, и я помогу разобраться. Что вас беспокоит?",
-  },
-];
-
 const STORAGE_KEY = "vetai_chat_messages";
+
+function getInitialMessages() {
+  return [
+    {
+      role: "assistant",
+      content: t("chatInitialMessage"),
+    },
+  ];
+}
 
 export default function ChatPage() {
   const [messages, setMessages] = useState(() => {
@@ -21,7 +24,7 @@ export default function ChatPage() {
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
-    return INITIAL_MESSAGES;
+    return getInitialMessages();
   });
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -36,7 +39,8 @@ export default function ChatPage() {
   }, [messages]);
 
   const clearChat = useCallback(() => {
-    setMessages(INITIAL_MESSAGES);
+    const initial = getInitialMessages();
+    setMessages(initial);
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
@@ -51,6 +55,7 @@ export default function ChatPage() {
       const user = JSON.parse(localStorage.getItem("vetai_user") || "{}");
 
       const telegramId = localStorage.getItem("vetai_telegram_id") || "12345";
+      const language = getLang();
 
       const res = await fetch(`${API_URL}/api/v1/chat/message`, {
         method: "POST",
@@ -64,13 +69,14 @@ export default function ChatPage() {
             .filter((m) => m.role === "user" || m.role === "assistant")
             .map((m) => ({ role: m.role, content: m.content })),
           city: user.city || null,
+          language,
         }),
       });
 
       if (res.status === 429) {
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", content: "Лимит 3 запроса в день исчерпан. Попробуйте завтра." },
+          { role: "assistant", content: t("chatLimitExhausted") },
         ]);
         return;
       }
@@ -90,7 +96,7 @@ export default function ChatPage() {
     } catch (err) {
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Извините, произошла ошибка. Попробуйте ещё раз." },
+        { role: "assistant", content: t("chatError") },
       ]);
     } finally {
       setLoading(false);
@@ -100,7 +106,7 @@ export default function ChatPage() {
   const renderMessage = (msg, i) => {
     if (msg.role === "clinic") {
       // Extract URL from the message
-      const urlMatch = msg.content.match(/(https:\/\/yandex\.ru\/maps\/[^\s]+)/);
+      const urlMatch = msg.content.match(/(https:\/\/(?:yandex\.ru\/maps|www\.google\.com\/maps)\/[^\s]+)/);
       const url = urlMatch ? urlMatch[1] : null;
       // Get text before URL, trim whitespace
       const beforeUrl = url ? msg.content.split(url)[0].replace(/\n+/g, ' ').trim() : msg.content.trim();
@@ -110,7 +116,7 @@ export default function ChatPage() {
           <div className="max-w-[85%] px-4 py-3 rounded-2xl rounded-bl-sm bg-red-50 border border-red-200 text-sm">
             <div className="flex items-center gap-2 text-red-600 font-semibold mb-1">
               <MapPin size={16} />
-              Рекомендация
+              {t("chatRecommendation")}
             </div>
             <div className="text-gray-700">
               {url ? (
@@ -122,7 +128,7 @@ export default function ChatPage() {
                     rel="noopener noreferrer"
                     className="text-tg-blue underline font-medium"
                   >
-                    Найти клинику на карте
+                    {t("chatFindClinic")}
                   </a>
                 </>
               ) : (
@@ -156,14 +162,14 @@ export default function ChatPage() {
     <div className="flex flex-col h-full">
       {/* Header with clear button */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200">
-        <h1 className="text-lg font-bold text-gray-900">Чат с AI-ветеринаром</h1>
+        <h1 className="text-lg font-bold text-gray-900">{t("chatTitle")}</h1>
         <button
           onClick={clearChat}
           className="flex items-center gap-1 text-sm text-gray-400 hover:text-red-500 transition-colors"
-          title="Очистить чат"
+          title={t("chatClear")}
         >
           <Trash2 size={16} />
-          <span>Очистить</span>
+          <span>{t("chatClear")}</span>
         </button>
       </div>
 
@@ -187,7 +193,7 @@ export default function ChatPage() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-          placeholder="Опишите симптомы..."
+          placeholder={t("chatPlaceholder")}
           className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 focus:border-tg-blue focus:outline-none text-sm"
         />
         <button

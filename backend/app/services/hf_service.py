@@ -134,8 +134,10 @@ async def get_chat_response(
         raise
 
 
-def _photo_prompt(pet_species: str, complaint: str | None = None) -> str:
+def _photo_prompt(pet_species: str, complaint: str | None = None, language: str = "ru") -> str:
     """Build photo analysis prompt."""
+    if language == "en":
+        return _photo_prompt_en(pet_species, complaint)
     complaint_text = f"\nЖалоба владельца: {complaint}" if complaint else ""
     return f"""Ты — опытный ветеринарный врач. Проанализируй фото.{complaint_text}
 
@@ -180,11 +182,66 @@ def _photo_prompt(pet_species: str, complaint: str | None = None) -> str:
 {{"condition": "конкретный диагноз на русском", "confidence": 0.0-1.0, "severity": "низкая|средняя|высокая", "description": "что видно на фото + обоснование диагноза", "recommendation": "конкретные рекомендации по лечению и обследованию", "should_visit_vet": true|false}}"""
 
 
-def _parse_vision_result(raw_text: str) -> dict:
+def _photo_prompt_en(pet_species: str, complaint: str | None = None) -> str:
+    """Build English photo analysis prompt."""
+    complaint_text = f"\nOwner's complaint: {complaint}" if complaint else ""
+    return f"""You are an experienced veterinarian. Analyze the photo.{complaint_text}
+
+STEP 1: Determine if there is an animal in the photo.
+- If there is NO animal (person, object, food, landscape, etc.) — return:
+{{"condition": "not_animal", "confidence": 0.0, "severity": "low", "description": "No animal was found in the photo.", "recommendation": "Please upload a photo of your pet.", "should_visit_vet": false}}
+
+STEP 2: Perform a DETAILED examination. First list EVERYTHING you see on the skin/fur/eyes/ears before making an assessment:
+- Crusts, scabs, wounds, scratches, spots, bumps, papules
+- Redness, swelling, puffiness
+- Hairless areas, bald patches
+- Discharge from eyes, nose, ears
+- Dark spots (may be ticks, fleas, insect bites)
+- Changes in skin texture or color
+IMPORTANT: Even SMALL crusts, dark spots, or wounds are NOT normal. The owner uploaded the photo because something is bothering them. Better to err on the side of caution.
+
+If after detailed examination there is truly NOTHING suspicious — condition="healthy".
+
+STEP 3: If ANY problem is found — provide a SPECIFIC preliminary diagnosis as an experienced veterinarian ({pet_species}).
+
+DIAGNOSTIC HINTS:
+Skin:
+- Redness with weeping, erosions → dermatitis (allergic, atopic, contact)
+- Pustules and pus → pyoderma
+- Circular alopecia with scaling → dermatophytosis (ringworm)
+- Localized alopecia, redness, flakes → demodicosis
+- Acute weeping inflammation → wet eczema
+- Multiple small crusts, dark spots (especially on head/ears) → tick bites (possible babesiosis, Lyme disease, ehrlichiosis)
+- Scratching marks, small dark dots in fur → flea allergy dermatitis
+- Wound/trauma — ONLY with obvious cuts/tissue tears
+
+Eyes: conjunctivitis, blepharitis, keratitis, uveitis
+Ears: otitis (external/middle), ear mites (otodectes), ear hematoma
+Nose: rhinitis, hyperkeratosis
+Oral cavity: stomatitis, gingivitis, dental calculus
+
+IMPORTANT: Give a SPECIFIC diagnosis, NOT "suspected skin damage" or "crusts observed". The owner expects a preliminary medical assessment from you.
+
+LANGUAGE: The entire response MUST be in English only.
+
+Respond STRICTLY in JSON format:
+{{"condition": "specific diagnosis in English", "confidence": 0.0-1.0, "severity": "low|medium|high", "description": "what is visible in the photo + diagnosis rationale", "recommendation": "specific treatment and examination recommendations", "should_visit_vet": true|false}}"""
+
+
+def _parse_vision_result(raw_text: str, language: str = "ru") -> dict:
     """Parse vision model response into structured dict."""
     parsed = _parse_json_response(raw_text)
     if parsed:
         return parsed
+    if language == "en":
+        return {
+            "condition": "Could not determine",
+            "confidence": 0.0,
+            "severity": "medium",
+            "description": raw_text,
+            "recommendation": "We recommend showing your pet to a veterinarian for an accurate diagnosis.",
+            "should_visit_vet": True,
+        }
     return {
         "condition": "Не удалось определить",
         "confidence": 0.0,
@@ -200,20 +257,21 @@ async def analyze_photo(
     pet_species: str,
     content_type: str = "image/jpeg",
     complaint: str | None = None,
+    language: str = "ru",
 ) -> dict:
     """Analyze pet photo: Groq vision → Claude vision fallback."""
     global _groq_vision_limited_until, last_provider
     settings = get_settings()
 
     b64_image = base64.b64encode(image_bytes).decode("utf-8")
-    prompt = _photo_prompt(pet_species, complaint)
+    prompt = _photo_prompt(pet_species, complaint, language=language)
 
     # If Groq vision is rate-limited, go straight to Claude
     if time.time() < _groq_vision_limited_until:
         logger.info("Groq vision rate-limited, using Claude vision fallback")
         raw_text = await _claude_vision_fallback(b64_image, content_type, prompt)
         last_provider = "claude"
-        return _parse_vision_result(raw_text)
+        return _parse_vision_result(raw_text, language=language)
 
     # Try Groq vision
     data_uri = f"data:{content_type};base64,{b64_image}"
@@ -254,13 +312,14 @@ async def analyze_photo(
         raw_text = await _claude_vision_fallback(b64_image, content_type, prompt)
         last_provider = "claude"
 
-    return _parse_vision_result(raw_text)
+    return _parse_vision_result(raw_text, language=language)
 
 
 async def interpret_lab_results_image(
     image_bytes: bytes,
     pet_species: str,
     content_type: str = "image/jpeg",
+    language: str = "ru",
 ) -> dict:
     """Read lab results from image: Groq vision → Claude vision fallback."""
     global _groq_vision_limited_until, last_provider
@@ -268,7 +327,19 @@ async def interpret_lab_results_image(
 
     b64_image = base64.b64encode(image_bytes).decode("utf-8")
 
-    prompt = f"""Ты — опытный ветеринарный врач. На фото результаты анализов {pet_species}.
+    if language == "en":
+        prompt = f"""You are an experienced veterinarian. The photo shows lab results for a {pet_species}.
+
+STEP 1: Read ALL values from the photo (parameter names and their numerical values).
+STEP 2: Determine which parameters are outside the normal range for a {pet_species}.
+STEP 3: Based on the combination of anomalies, suggest a possible diagnosis or condition.
+STEP 4: Provide a detailed conclusion in English. At the end, ALWAYS add: "These results are preliminary. For an accurate diagnosis and treatment plan, please consult a veterinarian."
+
+Respond STRICTLY in English. Respond in JSON format:
+{{"extracted_text": "recognized text", "parsed_values": {{"parameter": "value (normal: X-Y)", ...}}, "anomalies": ["anomaly 1", ...], "diagnosis": "suspected diagnosis", "summary": "detailed conclusion with recommendation to consult a veterinarian"}}"""
+        fallback = {"extracted_text": "", "parsed_values": {}, "anomalies": [], "summary": "Could not recognize lab results. Please try uploading a clearer photo."}
+    else:
+        prompt = f"""Ты — опытный ветеринарный врач. На фото результаты анализов {pet_species}.
 
 ШАГ 1: Прочитай ВСЕ значения с фото (названия показателей и их числовые значения).
 ШАГ 2: Определи, какие показатели выходят за пределы нормы для {pet_species}.
@@ -277,8 +348,7 @@ async def interpret_lab_results_image(
 
 Отвечай СТРОГО на русском. Ответь в формате JSON:
 {{"extracted_text": "распознанный текст", "parsed_values": {{"показатель": "значение (норма: X-Y)", ...}}, "anomalies": ["отклонение 1", ...], "diagnosis": "предполагаемый диагноз", "summary": "развёрнутое заключение с рекомендацией обратиться к ветеринару"}}"""
-
-    fallback = {"extracted_text": "", "parsed_values": {}, "anomalies": [], "summary": "Не удалось распознать анализы. Попробуйте загрузить более чёткое фото."}
+        fallback = {"extracted_text": "", "parsed_values": {}, "anomalies": [], "summary": "Не удалось распознать анализы. Попробуйте загрузить более чёткое фото."}
 
     # If Groq vision is rate-limited, go straight to Claude
     if time.time() < _groq_vision_limited_until:

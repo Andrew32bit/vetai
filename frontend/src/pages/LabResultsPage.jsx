@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { FileText, Upload, Loader2 } from "lucide-react";
+import { t, getLang } from "../i18n";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -22,8 +23,10 @@ export default function LabResultsPage() {
     setLimitError(null);
     try {
       const telegramId = localStorage.getItem("vetai_telegram_id") || "12345";
+      const language = getLang();
       const form = new FormData();
       form.append("file", file);
+      form.append("language", language);
 
       const res = await fetch(`${API_URL}/api/v1/diagnosis/lab-results`, {
         method: "POST",
@@ -32,7 +35,7 @@ export default function LabResultsPage() {
       });
 
       if (res.status === 429) {
-        setLimitError("Лимит 3 запроса в день исчерпан. Попробуйте завтра.");
+        setLimitError(t("labLimitExhausted"));
         return;
       }
 
@@ -47,9 +50,9 @@ export default function LabResultsPage() {
 
   return (
     <div className="px-4 py-6">
-      <h1 className="text-xl font-bold mb-4 text-gray-900">Загрузить анализы 📋</h1>
+      <h1 className="text-xl font-bold mb-4 text-gray-900">{t("labTitle")}</h1>
       <p className="text-sm text-gray-600 mb-6">
-        Загрузите изображение или PDF. AI распознает текст и найдёт отклонения.
+        {t("labSubtitle")}
       </p>
 
       <button
@@ -58,7 +61,7 @@ export default function LabResultsPage() {
       >
         <FileText size={32} />
         <span className="font-medium text-sm">
-          {file ? file.name : "Фото или PDF анализов"}
+          {file ? file.name : t("labFilePrompt")}
         </span>
       </button>
 
@@ -77,7 +80,7 @@ export default function LabResultsPage() {
           className="w-full mt-4 bg-tg-blue text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
         >
           {loading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />}
-          {loading ? "Распознаём..." : "Расшифровать"}
+          {loading ? t("labRecognizing") : t("labDecode")}
         </button>
       )}
 
@@ -92,7 +95,7 @@ export default function LabResultsPage() {
         <div className="mt-4 space-y-3">
           {result.anomalies?.length > 0 && (
             <div className="p-4 rounded-2xl bg-red-50 border border-red-100">
-              <div className="font-bold text-red-600 mb-2">Отклонения</div>
+              <div className="font-bold text-red-600 mb-2">{t("labAnomalies")}</div>
               {result.anomalies.map((a, i) => (
                 <div key={i} className="text-sm text-red-700">• {a}</div>
               ))}
@@ -101,18 +104,18 @@ export default function LabResultsPage() {
 
           {result.diagnosis && (
             <div className="p-4 rounded-2xl bg-yellow-50 border border-yellow-200">
-              <div className="font-bold text-yellow-700 mb-2">Предварительный диагноз</div>
+              <div className="font-bold text-yellow-700 mb-2">{t("labDiagnosis")}</div>
               <div className="text-sm text-gray-700">{result.diagnosis}</div>
             </div>
           )}
 
           <div className="p-4 rounded-2xl bg-blue-50 border border-blue-100">
-            <div className="font-bold text-tg-blue mb-2">Заключение AI</div>
+            <div className="font-bold text-tg-blue mb-2">{t("labConclusion")}</div>
             <div className="text-sm text-gray-700">{result.summary}</div>
           </div>
 
           <div className="text-xs text-gray-400 text-center px-4">
-            Результаты AI носят предварительный характер. Обратитесь к ветеринарному врачу для точного диагноза.
+            {t("labDisclaimer")}
           </div>
         </div>
       )}

@@ -1,32 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Camera, FileText, MessageCircle } from "lucide-react";
+import { t } from "../i18n";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-
-const actions = [
-  {
-    icon: Camera,
-    title: "Проверка по фото",
-    desc: "Сфотографируйте проблемную область",
-    path: "/photo",
-    color: "#2AABEE",
-  },
-  {
-    icon: FileText,
-    title: "Загрузить анализы",
-    desc: "AI расшифрует результаты",
-    path: "/lab",
-    color: "#FF9800",
-  },
-  {
-    icon: MessageCircle,
-    title: "Описать симптомы",
-    desc: "Чат с AI-ветеринаром",
-    path: "/chat",
-    color: "#4CAF50",
-  },
-];
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -36,6 +13,30 @@ export default function HomePage() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackSent, setFeedbackSent] = useState(false);
+
+  const actions = [
+    {
+      icon: Camera,
+      title: t("photoCheckTitle"),
+      desc: t("photoCheckDesc"),
+      path: "/photo",
+      color: "#2AABEE",
+    },
+    {
+      icon: FileText,
+      title: t("labUploadTitle"),
+      desc: t("labUploadDesc"),
+      path: "/lab",
+      color: "#FF9800",
+    },
+    {
+      icon: MessageCircle,
+      title: t("symptomChatTitle"),
+      desc: t("symptomChatDesc"),
+      path: "/chat",
+      color: "#4CAF50",
+    },
+  ];
 
   useEffect(() => {
     const fetchUsage = async () => {
@@ -63,14 +64,14 @@ export default function HomePage() {
       {/* Greeting */}
       <div className="mb-3">
         <h1 className="text-2xl font-bold text-gray-900">
-          Привет{user.petName || (user.pets && user.pets[0]?.name) ? `, ${user.petName || user.pets[0]?.name}` : ""}! 🐾
+          {t("greeting")}{user.petName || (user.pets && user.pets[0]?.name) ? `, ${user.petName || user.pets[0]?.name}` : ""}! 🐾
         </h1>
-        <p className="text-gray-500 mt-1">Как здоровье вашего питомца?</p>
+        <p className="text-gray-500 mt-1">{t("healthQuestion")}</p>
       </div>
 
       {/* Beta banner with remaining requests */}
       <div className="mb-3 px-3 py-1.5 rounded-xl bg-green-50 border border-green-200 text-center text-sm text-green-700">
-        Бета — бесплатно! Использовано: {usageToday}/{usageLimit}
+        {t("betaBanner")} {usageToday}/{usageLimit}
       </div>
 
       {/* Action cards */}
@@ -100,10 +101,9 @@ export default function HomePage() {
 
       {/* Health tip */}
       <div className="mt-3 p-3 rounded-2xl bg-blue-50 border border-blue-100">
-        <div className="text-sm font-semibold text-tg-blue mb-1">💡 Совет дня</div>
+        <div className="text-sm font-semibold text-tg-blue mb-1">{t("dailyTipTitle")}</div>
         <div className="text-sm text-gray-600">
-          Регулярно проверяйте уши питомца — покраснение или запах могут указывать
-          на отит. Загрузите фото для быстрой проверки!
+          {t("dailyTipText")}
         </div>
       </div>
 
@@ -114,15 +114,15 @@ export default function HomePage() {
             onClick={() => setShowFeedback(true)}
             className="w-full text-center text-xs text-gray-400 py-2"
           >
-            💬 Оставить отзыв или предложение
+            {t("feedbackButton")}
           </button>
         ) : (
           <div className="p-4 rounded-2xl bg-gray-50 border border-gray-200">
-            <div className="text-sm font-semibold text-gray-700 mb-2">Обратная связь</div>
+            <div className="text-sm font-semibold text-gray-700 mb-2">{t("feedbackTitle")}</div>
             <textarea
               value={feedbackText}
               onChange={(e) => setFeedbackText(e.target.value)}
-              placeholder="Напишите ваш отзыв, вопрос или предложение..."
+              placeholder={t("feedbackPlaceholder")}
               className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-tg-blue focus:outline-none text-sm text-gray-900 resize-none"
               rows={3}
             />
@@ -145,19 +145,19 @@ export default function HomePage() {
                 }}
                 className="flex-1 bg-tg-blue text-white text-sm font-medium py-2 rounded-xl"
               >
-                Отправить
+                {t("feedbackSend")}
               </button>
               <button
                 onClick={() => { setShowFeedback(false); setFeedbackText(""); }}
                 className="px-4 text-sm text-gray-400"
               >
-                Отмена
+                {t("feedbackCancel")}
               </button>
             </div>
           </div>
         )}
         {feedbackSent && (
-          <div className="mt-2 text-center text-xs text-green-600">Спасибо за отзыв!</div>
+          <div className="mt-2 text-center text-xs text-green-600">{t("feedbackThanks")}</div>
         )}
       </div>
     </div>

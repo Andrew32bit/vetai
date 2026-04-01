@@ -84,6 +84,7 @@ async def analyze_photo(
     species: str = "питомца",
     complaint: Optional[str] = None,
     city: Optional[str] = None,
+    language: str = "ru",
     x_telegram_id: int = Header(...),
 ):
     """Upload pet photo → HuggingFace Vision LLM analysis."""
@@ -105,6 +106,7 @@ async def analyze_photo(
             pet_species=species,
             content_type=content_type,
             complaint=complaint,
+            language=language,
         )
         await increment(x_telegram_id, "photo", provider="groq")
 
@@ -193,6 +195,7 @@ async def analyze_lab_results(
     file: UploadFile = File(...),
     pet_id: Optional[int] = None,
     species: str = "питомца",
+    language: str = "ru",
     x_telegram_id: int = Header(...),
 ):
     """Upload lab results photo/PDF → OCR → LLM interpretation."""
@@ -226,6 +229,7 @@ async def analyze_lab_results(
             image_bytes=file_bytes,
             pet_species=species,
             content_type=content_type,
+            language=language,
         )
         await increment(x_telegram_id, "lab", provider="groq")
 
