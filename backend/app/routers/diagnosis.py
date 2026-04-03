@@ -13,6 +13,7 @@ from typing import Optional
 from sqlalchemy import select
 
 from app.services import hf_service
+from app.services.hf_service import AllProvidersDownError
 from app.services.hf_service import analyze_photo as hf_analyze_photo, interpret_lab_results_image
 from app.services.usage_limiter import check_limit, increment, get_remaining
 from app.services.alerting import send_alert
@@ -169,6 +170,16 @@ async def analyze_photo(
 
         return response
 
+    except AllProvidersDownError:
+        logger.error("All AI providers are down (photo)")
+        return PhotoDiagnosisResponse(
+            condition="Высокая нагрузка",
+            confidence=0.0,
+            severity="средняя",
+            description="Сейчас очень много пользователей! Мы срочно масштабируем серверы. Попробуйте через 5-10 минут.",
+            recommendation="Попробуйте повторить запрос через несколько минут.",
+            should_visit_vet=False,
+        )
     except Exception as e:
         logger.error(f"Photo analysis error: {e}")
         send_alert(
@@ -258,6 +269,14 @@ async def analyze_lab_results(
 
         return response
 
+    except AllProvidersDownError:
+        logger.error("All AI providers are down (lab)")
+        return LabResultsResponse(
+            extracted_text="",
+            parsed_values={},
+            anomalies=[],
+            summary="Сейчас очень много пользователей! Мы срочно масштабируем серверы. Попробуйте через 5-10 минут.",
+        )
     except Exception as e:
         logger.error(f"Lab results analysis error: {e}")
         send_alert(

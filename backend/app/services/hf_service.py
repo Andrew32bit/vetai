@@ -15,6 +15,11 @@ from app.services.alerting import send_alert
 
 logger = logging.getLogger(__name__)
 
+
+class AllProvidersDownError(Exception):
+    """Raised when both Groq and Claude are unavailable."""
+    pass
+
 # Track Groq rate limit state to avoid repeated failed calls
 _groq_chat_limited_until: float = 0
 _groq_vision_limited_until: float = 0
@@ -129,8 +134,13 @@ async def get_chat_response(
             _groq_chat_limited_until = time.time() + 300
             logger.warning("Groq chat rate-limited, switching to Claude for 5 min")
             send_alert(error_type="groq_rate_limit", error_message="Groq chat лимит исчерпан, переключение на Claude", feature="chat")
-            last_provider = "claude"
-            return await _claude_chat_fallback(messages, system_prompt)
+            try:
+                last_provider = "claude"
+                return await _claude_chat_fallback(messages, system_prompt)
+            except Exception as claude_err:
+                logger.error(f"Claude fallback also failed: {claude_err}")
+                send_alert(error_type="all_providers_down", error_message=f"Groq и Claude оба недоступны: {claude_err}", feature="chat")
+                raise AllProvidersDownError("Все AI-провайдеры временно недоступны")
         raise
 
 
@@ -309,8 +319,13 @@ async def analyze_photo(
 
     # Fallback to Claude vision
     if use_claude or raw_text is None:
-        raw_text = await _claude_vision_fallback(b64_image, content_type, prompt)
-        last_provider = "claude"
+        try:
+            raw_text = await _claude_vision_fallback(b64_image, content_type, prompt)
+            last_provider = "claude"
+        except Exception as claude_err:
+            logger.error(f"Claude vision fallback also failed: {claude_err}")
+            send_alert(error_type="all_providers_down", error_message=f"Groq и Claude vision оба недоступны: {claude_err}", feature="photo")
+            raise AllProvidersDownError("Все AI-провайдеры временно недоступны")
 
     return _parse_vision_result(raw_text, language=language)
 
@@ -398,7 +413,8 @@ Respond STRICTLY in English. Respond in JSON format:
             last_provider = "claude"
         except Exception as e:
             logger.error(f"Claude vision fallback failed: {e}")
-            return fallback
+            send_alert(error_type="all_providers_down", error_message=f"Groq и Claude vision оба недоступны (lab): {e}", feature="lab")
+            raise AllProvidersDownError("Все AI-провайдеры временно недоступны")
 
     parsed = _parse_json_response(raw_text)
     if parsed:

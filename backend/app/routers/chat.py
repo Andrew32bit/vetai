@@ -3,15 +3,18 @@ Symptom chat: structured conversation with HuggingFace LLM.
 Collects symptoms → generates preliminary assessment → recommends clinic if urgent.
 """
 
+import json
 import logging
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 from typing import Optional
+from sqlalchemy import select
 
 from app.services import hf_service
-from app.services.hf_service import get_chat_response
+from app.services.hf_service import get_chat_response, AllProvidersDownError
 from app.services.usage_limiter import check_limit, increment, get_remaining
 from app.services.alerting import send_alert
+from app.models.database import async_session, User, ChatSession
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -249,8 +252,45 @@ async def send_message(
             clinic_recommendation=clinic_rec,
         )
 
+        # Save chat session to DB
+        try:
+            full_history = [{"role": m.role, "content": m.content} for m in request.history]
+            full_history.append({"role": "user", "content": request.message})
+            full_history.append({"role": "assistant", "content": parsed["reply"]})
+
+            async with async_session() as db:
+                user = (await db.execute(
+                    select(User).where(User.telegram_id == x_telegram_id)
+                )).scalar_one_or_none()
+                if user:
+                    session_obj = ChatSession(
+                        user_id=user.id,
+                        pet_id=request.pet_id,
+                        messages_json=json.dumps(full_history, ensure_ascii=False),
+                        preliminary_assessment=parsed["assessment"],
+                        urgency=parsed["urgency"],
+                    )
+                    db.add(session_obj)
+                    await db.commit()
+        except Exception as e:
+            logger.error(f"Failed to save chat session: {e}")
+
         return response
 
+    except AllProvidersDownError:
+        logger.error("All AI providers are down")
+        error_msg = (
+            "We're experiencing high demand right now! We're scaling up our servers. Please try again in 5-10 minutes — we're on it!"
+            if language == "en"
+            else "Сейчас очень много пользователей! Мы срочно масштабируем серверы. Попробуйте через 5-10 минут — мы уже работаем над этим."
+        )
+        return ChatResponse(
+            reply=error_msg,
+            follow_up_questions=[],
+            preliminary_assessment=None,
+            urgency=None,
+            clinic_recommendation=None,
+        )
     except Exception as e:
         import traceback
         error_detail = traceback.format_exc()
