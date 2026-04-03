@@ -111,7 +111,7 @@ const translations = {
     onboardingDailyLimitDesc: "10 запросов в день (фото + чат + анализы)",
     onboardingBetaNote: "После завершения бета-тестирования будет введена платная подписка",
     onboardingStartUsing: "Начать использовать",
-    onboardingDisclaimer: "VetAI не ставит диагнозы и не назначает лечение. Сервис даёт предварительную оценку и рекомендует консультацию специалиста.",
+    onboardingDisclaimer: "VetAI не ставит диагнозы и не назначает лечение. Сервис даёт предварительную оценку и рекомендует консультацию специалиста. Рекомендация клиники пока недоступна в бета-версии.",
 
     // BottomNav
     navHome: "Главная",
@@ -228,7 +228,7 @@ const translations = {
     onboardingDailyLimitDesc: "10 requests per day (photo + chat + lab results)",
     onboardingBetaNote: "A paid subscription will be introduced after the beta period ends",
     onboardingStartUsing: "Start Using",
-    onboardingDisclaimer: "VetAI does not diagnose or prescribe treatment. The service provides a preliminary assessment and recommends consulting a specialist.",
+    onboardingDisclaimer: "VetAI does not diagnose or prescribe treatment. The service provides a preliminary assessment and recommends consulting a specialist. Clinic recommendations are not yet available in the beta version.",
 
     // BottomNav
     navHome: "Home",
