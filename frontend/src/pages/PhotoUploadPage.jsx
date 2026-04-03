@@ -68,6 +68,8 @@ export default function PhotoUploadPage() {
       setResult(data);
     } catch (err) {
       console.error(err);
+      const isServerDown = err.message?.includes("Failed to fetch") || err.message?.includes("NetworkError");
+      setLimitError(isServerDown ? t("serverOverloaded") : t("chatError"));
     } finally {
       setLoading(false);
     }

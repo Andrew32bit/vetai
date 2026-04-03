@@ -94,9 +94,10 @@ export default function ChatPage() {
         ]);
       }
     } catch (err) {
+      const isServerDown = err.message?.includes("Failed to fetch") || err.message?.includes("NetworkError") || err.message?.includes("503");
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: t("chatError") },
+        { role: "assistant", content: isServerDown ? t("serverOverloaded") : t("chatError") },
       ]);
     } finally {
       setLoading(false);

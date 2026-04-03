@@ -35,6 +35,7 @@ const translations = {
     chatPlaceholder: "Опишите симптомы...",
     chatLimitExhausted: "Лимит 3 запроса в день исчерпан. Попробуйте завтра.",
     chatError: "Извините, произошла ошибка. Попробуйте ещё раз.",
+    serverOverloaded: "Сейчас очень много пользователей! Мы срочно масштабируем серверы. Попробуйте через 5-10 минут — мы уже работаем над этим.",
     chatRecommendation: "Рекомендация",
     chatFindClinic: "Найти клинику на карте",
 
@@ -150,6 +151,7 @@ const translations = {
     chatPlaceholder: "Describe symptoms...",
     chatLimitExhausted: "Daily limit of 3 requests exhausted. Try again tomorrow.",
     chatError: "Sorry, an error occurred. Please try again.",
+    serverOverloaded: "We're experiencing high demand right now! We're scaling up our servers. Please try again in 5-10 minutes — we're on it!",
     chatRecommendation: "Recommendation",
     chatFindClinic: "Find a clinic on the map",
 
