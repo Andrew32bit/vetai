@@ -63,6 +63,8 @@ async def auth_user(data: AuthRequest):
                 user.username = data.username
             if data.platform is not None:
                 user.platform = data.platform
+            if data.language_code:
+                user.language_code = data.language_code
             await session.commit()
             await session.refresh(user)
 
@@ -243,6 +245,7 @@ async def list_users(admin_key: str = Header(...)):
                 "first_name": u.first_name,
                 "username": u.username,
                 "city": u.city,
+                "language_code": u.language_code,
                 "login_count": u.login_count,
                 "last_login": u.last_login.isoformat() if u.last_login else None,
                 "daily_limit_override": u.daily_limit_override,
