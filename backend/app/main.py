@@ -23,9 +23,9 @@ app.add_middleware(
     allow_origins=[
         "https://web.telegram.org",
         "https://andrew32bit.github.io",
-        "http://localhost:5173",  # Vite dev
+        "https://salmon-hill-0a38f9b10.1.azurestaticapps.net",
+        "http://localhost:5173",
         "http://localhost:5174",
-        "http://localhost:3000",
         settings.TELEGRAM_WEBAPP_URL,
     ],
     allow_credentials=True,
@@ -62,7 +62,7 @@ async def _keep_alive():
     while True:
         await asyncio.sleep(600)  # 10 minutes
         try:
-            urllib.request.urlopen("https://vetai-backend-app.onrender.com/health", timeout=10)
+            urllib.request.urlopen("https://vetai-backend.azurewebsites.net/health", timeout=10)
         except Exception as e:
             logger.debug(f"Keep-alive ping failed: {e}")
 
