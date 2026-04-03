@@ -8,8 +8,13 @@ from datetime import date, datetime
 from sqlalchemy import select, func
 
 from app.models.database import async_session, UsageLog, User
+from app.services.alerting import send_alert
 
 DAILY_LIMIT = 10
+
+# Traffic alert thresholds (requests/day)
+_traffic_alerts_sent: set[int] = set()
+TRAFFIC_THRESHOLDS = [30, 60, 100, 200, 500]
 
 
 async def _get_today_count(telegram_id: int) -> int:
@@ -57,6 +62,32 @@ async def increment(telegram_id: int, feature: str, provider: str | None = None)
         log = UsageLog(user_id=user_id, feature=feature, provider=provider, used_at=datetime.utcnow())
         session.add(log)
         await session.commit()
+
+        # Check daily traffic thresholds
+        today = date.today().isoformat()
+        total_today = (await session.execute(
+            select(func.count(UsageLog.id)).where(func.date(UsageLog.used_at) == today)
+        )).scalar() or 0
+
+        active_users = (await session.execute(
+            select(func.count(func.distinct(UsageLog.user_id))).where(func.date(UsageLog.used_at) == today)
+        )).scalar() or 0
+
+        for threshold in TRAFFIC_THRESHOLDS:
+            if total_today >= threshold and threshold not in _traffic_alerts_sent:
+                _traffic_alerts_sent.add(threshold)
+                action = ""
+                if threshold == 30:
+                    action = "\n⚡ Рекомендация: переключить на Azure B1"
+                elif threshold == 60:
+                    action = "\n🔴 СРОЧНО: переключить на Azure B1 ($13/мес)"
+                elif threshold >= 100:
+                    action = "\n🚨 КРИТИЧНО: нужен PostgreSQL + B1/B2"
+                send_alert(
+                    error_type="traffic_warning",
+                    error_message=f"Запросов сегодня: {total_today}, активных юзеров: {active_users}{action}",
+                    feature="traffic",
+                )
 
 
 async def get_remaining(telegram_id: int) -> int:
