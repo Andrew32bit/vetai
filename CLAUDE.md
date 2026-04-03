@@ -3,8 +3,8 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
-Telegram Mini App for AI-powered pet health diagnosis (Russian market).
-Three core features: photo analysis (CV), lab results OCR, symptom chat (LLM).
+Telegram Mini App for AI-powered pet health diagnosis (Russian + English markets).
+Features: photo analysis (skin/eyes/ears + УЗИ/рентген/МРТ), lab results OCR, symptom chat (LLM).
 Ответ агента должен быть всегда на русском языке.
 
 ## Telegram Bot
@@ -13,12 +13,20 @@ Three core features: photo analysis (CV), lab results OCR, symptom chat (LLM).
 - **Канал:** @vetai_channel (для маркетинга)
 
 ## Tech Stack
-- **Backend:** Python 3.12 + FastAPI + SQLAlchemy (async) + SQLite (dev) / PostgreSQL (prod)
+- **Backend:** Python 3.12 + FastAPI + SQLAlchemy (async) + SQLite
 - **Frontend:** React 18 + Vite + Tailwind CSS + @twa-dev/sdk (Telegram Mini App)
 - **AI Chat:** Groq (Llama 3.3 70B) → Claude Sonnet fallback при 429
 - **AI Vision:** Groq (Llama 4 Scout) → Claude Vision fallback при 429
-- **Storage:** Yandex Cloud S3 for uploads
-- **Deployment:** Docker → Yandex Cloud
+- **i18n:** Auto-detect from Telegram language_code (ru/en)
+
+## Hosting (Azure)
+- **Frontend:** Azure Static Web Apps (Free) — salmon-hill-0a38f9b10.1.azurestaticapps.net
+- **Backend:** Azure App Service F1 (Free) — vetai-backend.azurewebsites.net
+- **Database:** SQLite on App Service disk, backup every 5 min → Azure Cosmos DB (Free 25GB)
+- **Old (deprecated):** Render.com (vetai-backend-app.onrender.com), GitHub Pages
+
+## Dashboard Command
+When asked for stats/dashboard, fetch from `https://vetai-backend.azurewebsites.net/api/v1/users/admin/stats` (header: admin-key: vetai-admin-2026) and format as: Общее → По дням → Пользователи (with pets, source) → Последние обращения → Продвижение.
 
 ## Commands
 
