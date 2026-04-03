@@ -9,7 +9,7 @@ from typing import Optional
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
-from app.models.database import async_session, User, Pet, UsageLog, Diagnosis, ChatSession
+from app.models.database import async_session, User, Pet, UsageLog, Diagnosis, ChatSession, ErrorLog
 from app.services.usage_limiter import get_usage_info
 
 router = APIRouter()
@@ -437,3 +437,32 @@ async def get_admin_chats(admin_key: str = Header(...), telegram_id: int = None)
             })
 
     return {"chats": result, "total": len(result)}
+
+
+@router.get("/admin/errors")
+async def get_admin_errors(admin_key: str = Header(...), limit: int = 50):
+    """Просмотр последних ошибок из БД."""
+    if admin_key != "vetai-admin-2026":
+        raise HTTPException(403, "Forbidden")
+
+    async with async_session() as session:
+        rows = (await session.execute(
+            select(ErrorLog)
+            .order_by(ErrorLog.created_at.desc())
+            .limit(limit)
+        )).scalars().all()
+
+        return {
+            "errors": [
+                {
+                    "id": e.id,
+                    "error_type": e.error_type,
+                    "feature": e.feature,
+                    "message": e.message,
+                    "telegram_id": e.telegram_id,
+                    "created_at": e.created_at.isoformat() if e.created_at else None,
+                }
+                for e in rows
+            ],
+            "total": len(rows),
+        }

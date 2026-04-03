@@ -122,3 +122,14 @@ class Feedback(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     message = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ErrorLog(Base):
+    __tablename__ = "error_log"
+
+    id = Column(Integer, primary_key=True)
+    error_type = Column(String(50), nullable=False)  # "groq_rate_limit" | "all_providers_down" | "chat_error" | "photo_error" | "lab_error"
+    feature = Column(String(20), nullable=True)  # "chat" | "photo" | "lab"
+    message = Column(Text, nullable=False)
+    telegram_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)

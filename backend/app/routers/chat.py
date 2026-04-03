@@ -13,7 +13,7 @@ from sqlalchemy import select
 from app.services import hf_service
 from app.services.hf_service import get_chat_response, AllProvidersDownError
 from app.services.usage_limiter import check_limit, increment, get_remaining
-from app.services.alerting import send_alert
+from app.services.alerting import send_alert, log_error_to_db
 from app.models.database import async_session, User, ChatSession
 
 router = APIRouter()
@@ -279,6 +279,7 @@ async def send_message(
 
     except AllProvidersDownError:
         logger.error("All AI providers are down")
+        await log_error_to_db("all_providers_down", "Groq и Claude оба недоступны", feature="chat", telegram_id=x_telegram_id)
         error_msg = (
             "We're experiencing high demand right now! We're scaling up our servers. Please try again in 5-10 minutes — we're on it!"
             if language == "en"
@@ -295,6 +296,7 @@ async def send_message(
         import traceback
         error_detail = traceback.format_exc()
         logger.error(f"Chat API error: {error_detail}")
+        await log_error_to_db("chat_error", str(e)[:500], feature="chat", telegram_id=x_telegram_id)
         send_alert(
             error_type="chat_error",
             error_message=str(e),

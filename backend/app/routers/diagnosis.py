@@ -16,7 +16,7 @@ from app.services import hf_service
 from app.services.hf_service import AllProvidersDownError
 from app.services.hf_service import analyze_photo as hf_analyze_photo, interpret_lab_results_image
 from app.services.usage_limiter import check_limit, increment, get_remaining
-from app.services.alerting import send_alert
+from app.services.alerting import send_alert, log_error_to_db
 from app.models.database import async_session, User, Diagnosis
 
 router = APIRouter()
@@ -172,6 +172,7 @@ async def analyze_photo(
 
     except AllProvidersDownError:
         logger.error("All AI providers are down (photo)")
+        await log_error_to_db("all_providers_down", "Groq и Claude оба недоступны", feature="photo", telegram_id=x_telegram_id)
         return PhotoDiagnosisResponse(
             condition="Высокая нагрузка",
             confidence=0.0,
@@ -182,6 +183,7 @@ async def analyze_photo(
         )
     except Exception as e:
         logger.error(f"Photo analysis error: {e}")
+        await log_error_to_db("photo_error", str(e)[:500], feature="photo", telegram_id=x_telegram_id)
         send_alert(
             error_type="photo_error",
             error_message=str(e),
@@ -271,6 +273,7 @@ async def analyze_lab_results(
 
     except AllProvidersDownError:
         logger.error("All AI providers are down (lab)")
+        await log_error_to_db("all_providers_down", "Groq и Claude оба недоступны", feature="lab", telegram_id=x_telegram_id)
         return LabResultsResponse(
             extracted_text="",
             parsed_values={},
@@ -279,6 +282,7 @@ async def analyze_lab_results(
         )
     except Exception as e:
         logger.error(f"Lab results analysis error: {e}")
+        await log_error_to_db("lab_error", str(e)[:500], feature="lab", telegram_id=x_telegram_id)
         send_alert(
             error_type="lab_error",
             error_message=str(e),

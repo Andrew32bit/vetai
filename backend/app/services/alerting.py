@@ -1,7 +1,7 @@
 """
 Telegram alerting for production errors.
 Sends notifications to admin when users hit errors.
-Rate-limited to avoid spam.
+Rate-limited to avoid spam. Errors also saved to DB.
 """
 
 import time
@@ -11,6 +11,28 @@ import json
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+
+async def log_error_to_db(
+    error_type: str,
+    message: str,
+    feature: str | None = None,
+    telegram_id: int | None = None,
+):
+    """Save error to error_log table."""
+    try:
+        from app.models.database import async_session, ErrorLog
+        async with async_session() as session:
+            entry = ErrorLog(
+                error_type=error_type,
+                feature=feature,
+                message=message[:2000],
+                telegram_id=telegram_id,
+            )
+            session.add(entry)
+            await session.commit()
+    except Exception as e:
+        logger.error(f"Failed to log error to DB: {e}")
 
 # Rate limit: max 1 alert per error type per 5 minutes
 _last_alert: dict[str, float] = {}
