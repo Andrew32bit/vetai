@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.database import async_session, User, Pet, UsageLog, Diagnosis, ChatSession, ErrorLog
 from app.services.usage_limiter import get_usage_info
+from app.services.alerting import send_new_user_alert
 
 router = APIRouter()
 
@@ -105,6 +106,21 @@ async def auth_user(data: AuthRequest):
             session.add(new_user)
             await session.commit()
             await session.refresh(new_user)
+
+            # Count total users for alert
+            total = (await session.execute(select(func.count(User.id)))).scalar() or 0
+
+            # Alert admin about new user
+            try:
+                send_new_user_alert(
+                    first_name=data.first_name or "—",
+                    username=data.username,
+                    city=None,
+                    language=data.language_code,
+                    total_users=total,
+                )
+            except Exception:
+                pass
 
             return {
                 "is_new": True,

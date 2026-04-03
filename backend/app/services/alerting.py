@@ -1,6 +1,6 @@
 """
-Telegram alerting for production errors.
-Sends notifications to admin when users hit errors.
+Telegram alerting for production errors and traffic events.
+Sends notifications to admin when users hit errors or milestones.
 Rate-limited to avoid spam. Errors also saved to DB.
 """
 
@@ -11,6 +11,10 @@ import json
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+# Traffic milestone tracking
+_milestones_sent: set[int] = set()
+MILESTONES = [10, 25, 50, 100, 200, 500, 1000]
 
 
 async def log_error_to_db(
@@ -94,3 +98,74 @@ def send_alert(
         urllib.request.urlopen(req, timeout=5)
     except Exception as e:
         logger.error(f"Failed to send alert: {e}")
+
+
+def send_new_user_alert(
+    first_name: str,
+    username: str | None,
+    city: str | None,
+    language: str | None,
+    total_users: int,
+):
+    """Alert admin about new user registration."""
+    settings = get_settings()
+    if not settings.TELEGRAM_BOT_TOKEN:
+        return
+
+    user_str = f"@{username}" if username else first_name
+    city_str = city or "—"
+    lang_str = language or "—"
+
+    text = (
+        f"👤 <b>Новый пользователь #{total_users}</b>\n"
+        f"<b>Имя:</b> {first_name}\n"
+        f"<b>Username:</b> {user_str}\n"
+        f"<b>Город:</b> {city_str}\n"
+        f"<b>Язык:</b> {lang_str}\n"
+        f"<b>Время:</b> {time.strftime('%H:%M:%S %d.%m.%Y')}"
+    )
+
+    try:
+        data = json.dumps({
+            "chat_id": settings.ADMIN_TELEGRAM_ID,
+            "text": text,
+            "parse_mode": "HTML",
+        }).encode()
+        req = urllib.request.Request(
+            f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage",
+            data=data,
+            headers={"Content-Type": "application/json"},
+        )
+        urllib.request.urlopen(req, timeout=5)
+    except Exception as e:
+        logger.error(f"Failed to send new user alert: {e}")
+
+    # Check milestones
+    for m in MILESTONES:
+        if total_users >= m and m not in _milestones_sent:
+            _milestones_sent.add(m)
+            _send_milestone_alert(m, total_users)
+
+
+def _send_milestone_alert(milestone: int, total: int):
+    """Alert admin about user milestone."""
+    settings = get_settings()
+    if not settings.TELEGRAM_BOT_TOKEN:
+        return
+
+    text = f"🎉 <b>Milestone!</b> Уже <b>{total}</b> пользователей! (порог: {milestone})"
+
+    try:
+        data = json.dumps({
+            "chat_id": settings.ADMIN_TELEGRAM_ID,
+            "text": text,
+            "parse_mode": "HTML",
+        }).encode()
+        req = urllib.request.Request(
+            f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage",
+            data=data,
+            headers={"Content-Type": "application/json"},
+        )
+        urllib.request.urlopen(req, timeout=5)
+    except Exception as e:
+        logger.error(f"Failed to send milestone alert: {e}")
