@@ -139,6 +139,9 @@ export default function OnboardingPage({ onComplete }) {
           >
             {t("onboardingStartUsing")}
           </button>
+          <p className="text-[10px] text-gray-400 mt-4 leading-tight">
+            {t("onboardingDisclaimer")}
+          </p>
         </div>
       )}
     </div>
