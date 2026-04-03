@@ -42,3 +42,4 @@ uploads/*.png
 image-74978-800.jpg
 .playwright-mcp/
 backups/
+api/local.settings.json
