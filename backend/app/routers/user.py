@@ -9,7 +9,7 @@ from typing import Optional
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
-from app.models.database import async_session, User, Pet, UsageLog, Diagnosis
+from app.models.database import async_session, User, Pet, UsageLog, Diagnosis, ChatSession
 from app.services.usage_limiter import get_usage_info
 
 router = APIRouter()
@@ -400,3 +400,40 @@ async def get_stats(admin_key: str = Header(...)):
         },
         "diagnoses_total": diagnoses_total,
     }
+
+
+@router.get("/admin/chats")
+async def get_admin_chats(admin_key: str = Header(...), telegram_id: int = None):
+    """Просмотр чат-сессий (опционально по telegram_id)."""
+    if admin_key != "vetai-admin-2026":
+        raise HTTPException(403, "Forbidden")
+
+    import json
+
+    async with async_session() as session:
+        query = select(ChatSession, User.telegram_id, User.first_name).join(
+            User, ChatSession.user_id == User.id
+        ).order_by(ChatSession.created_at.desc())
+
+        if telegram_id:
+            query = query.where(User.telegram_id == telegram_id)
+
+        rows = (await session.execute(query)).all()
+
+        result = []
+        for chat, tg_id, first_name in rows:
+            try:
+                messages = json.loads(chat.messages_json) if chat.messages_json else []
+            except Exception:
+                messages = []
+            result.append({
+                "session_id": chat.id,
+                "telegram_id": tg_id,
+                "first_name": first_name,
+                "urgency": chat.urgency,
+                "assessment": chat.preliminary_assessment,
+                "created_at": chat.created_at.isoformat() if chat.created_at else None,
+                "messages": messages,
+            })
+
+    return {"chats": result, "total": len(result)}
