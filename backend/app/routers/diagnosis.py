@@ -167,6 +167,7 @@ async def analyze_photo(
             )
         except Exception as save_err:
             logger.error(f"Failed to save photo diagnosis: {save_err}")
+            await log_error_to_db("save_diagnosis_error", f"photo: {save_err}", feature="photo", telegram_id=x_telegram_id)
 
         return response
 
@@ -268,6 +269,7 @@ async def analyze_lab_results(
             )
         except Exception as save_err:
             logger.error(f"Failed to save lab diagnosis: {save_err}")
+            await log_error_to_db("save_diagnosis_error", f"lab: {save_err}", feature="lab", telegram_id=x_telegram_id)
 
         return response
 
