@@ -42,21 +42,27 @@ async def _save_diagnosis(
     result_json: dict | None = None,
 ):
     """Save a diagnosis record to the DB."""
-    user_id = await _get_user_id(telegram_id)
-    if user_id is None:
-        logger.warning(f"Cannot save diagnosis: user {telegram_id} not found in DB")
-        return
-    async with async_session() as session:
-        diag = Diagnosis(
-            user_id=user_id,
-            type=dtype,
-            condition=condition,
-            confidence=confidence,
-            severity=severity,
-            result_json=json.dumps(result_json, ensure_ascii=False) if result_json else None,
-        )
-        session.add(diag)
-        await session.commit()
+    try:
+        user_id = await _get_user_id(telegram_id)
+        if user_id is None:
+            logger.warning(f"Cannot save diagnosis: user {telegram_id} not found in DB")
+            await log_error_to_db("save_diagnosis_error", f"user {telegram_id} not found", feature=dtype, telegram_id=telegram_id)
+            return
+        async with async_session() as session:
+            diag = Diagnosis(
+                user_id=user_id,
+                type=dtype,
+                condition=condition,
+                confidence=float(confidence) if confidence is not None else None,
+                severity=severity,
+                result_json=json.dumps(result_json, ensure_ascii=False) if result_json else None,
+            )
+            session.add(diag)
+            await session.commit()
+            logger.info(f"Diagnosis saved: user={telegram_id} type={dtype} condition={condition}")
+    except Exception as e:
+        logger.error(f"_save_diagnosis failed: {e}")
+        await log_error_to_db("save_diagnosis_error", f"{dtype}: {e}", feature=dtype, telegram_id=telegram_id)
 
 
 class PhotoDiagnosisResponse(BaseModel):
