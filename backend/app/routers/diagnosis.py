@@ -119,7 +119,7 @@ async def analyze_photo(
 
         # Handle non-animal photos
         if result.get("condition") == "не_животное":
-            return PhotoDiagnosisResponse(
+            resp = PhotoDiagnosisResponse(
                 condition="не_животное",
                 confidence=0.0,
                 severity="низкая",
@@ -127,10 +127,12 @@ async def analyze_photo(
                 recommendation="Пожалуйста, загрузите фото вашего питомца.",
                 should_visit_vet=False,
             )
+            await _save_diagnosis(telegram_id=x_telegram_id, dtype="photo", condition="не_животное", severity="низкая")
+            return resp
 
         # Handle healthy animal photos
         if result.get("condition") == "здоров":
-            return PhotoDiagnosisResponse(
+            resp = PhotoDiagnosisResponse(
                 condition="здоров",
                 confidence=float(result.get("confidence", 0.9)),
                 severity="низкая",
@@ -138,6 +140,8 @@ async def analyze_photo(
                 recommendation="Если вас что-то беспокоит, попробуйте загрузить фото проблемного участка крупным планом.",
                 should_visit_vet=False,
             )
+            await _save_diagnosis(telegram_id=x_telegram_id, dtype="photo", condition="здоров", confidence=float(result.get("confidence", 0.9)), severity="низкая")
+            return resp
 
         from urllib.parse import quote
         clinic_link = None
