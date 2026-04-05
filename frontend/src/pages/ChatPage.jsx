@@ -173,17 +173,17 @@ export default function ChatPage() {
             {msg.content}
           </div>
           {isBot && !reactions[i] && (
-            <div className="flex gap-2 mt-1 ml-1">
-              <button onClick={() => sendReaction(i, "like", msg.content)} className="text-gray-300 hover:text-green-500 transition-colors">
-                <ThumbsUp size={14} />
+            <div className="flex gap-3 mt-1.5 ml-1">
+              <button onClick={() => sendReaction(i, "like", msg.content)} className="text-gray-300 hover:text-green-500 transition-colors p-1">
+                <ThumbsUp size={18} />
               </button>
-              <button onClick={() => sendReaction(i, "dislike", msg.content)} className="text-gray-300 hover:text-red-500 transition-colors">
-                <ThumbsDown size={14} />
+              <button onClick={() => sendReaction(i, "dislike", msg.content)} className="text-gray-300 hover:text-red-500 transition-colors p-1">
+                <ThumbsDown size={18} />
               </button>
             </div>
           )}
           {reactions[i] && (
-            <div className="text-[10px] text-gray-300 mt-1 ml-1">
+            <div className="text-xs text-gray-300 mt-1 ml-1">
               {reactions[i] === "like" ? "👍" : "👎"}
             </div>
           )}
