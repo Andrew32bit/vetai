@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { FileText, Upload, Loader2 } from "lucide-react";
 import { t, getLang } from "../i18n";
+import StarRating from "../components/StarRating";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -119,6 +120,7 @@ export default function LabResultsPage() {
           <div className="text-xs text-gray-400 text-center px-4">
             {t("labDisclaimer")}
           </div>
+          {result.diagnosis_id && <StarRating diagnosisId={result.diagnosis_id} />}
         </div>
       )}
     </div>

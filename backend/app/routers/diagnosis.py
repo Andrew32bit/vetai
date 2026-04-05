@@ -59,10 +59,13 @@ async def _save_diagnosis(
             )
             session.add(diag)
             await session.commit()
-            logger.info(f"Diagnosis saved: user={telegram_id} type={dtype} condition={condition}")
+            await session.refresh(diag)
+            logger.info(f"Diagnosis saved: id={diag.id} user={telegram_id} type={dtype} condition={condition}")
+            return diag.id
     except Exception as e:
         logger.error(f"_save_diagnosis failed: {e}")
         await log_error_to_db("save_diagnosis_error", f"{dtype}: {e}", feature=dtype, telegram_id=telegram_id)
+    return None
 
 
 class PhotoDiagnosisResponse(BaseModel):
@@ -73,6 +76,7 @@ class PhotoDiagnosisResponse(BaseModel):
     recommendation: str
     should_visit_vet: bool
     clinic_link: Optional[str] = None
+    diagnosis_id: Optional[int] = None
 
 
 class LabResultsResponse(BaseModel):
@@ -80,6 +84,7 @@ class LabResultsResponse(BaseModel):
     parsed_values: dict
     anomalies: list
     summary: str
+    diagnosis_id: Optional[int] = None
 
 
 # --- Photo Analysis ---
@@ -127,7 +132,8 @@ async def analyze_photo(
                 recommendation="Пожалуйста, загрузите фото вашего питомца.",
                 should_visit_vet=False,
             )
-            await _save_diagnosis(telegram_id=x_telegram_id, dtype="photo", condition="не_животное", severity="низкая")
+            diag_id = await _save_diagnosis(telegram_id=x_telegram_id, dtype="photo", condition="не_животное", severity="низкая")
+            resp.diagnosis_id = diag_id
             return resp
 
         # Handle healthy animal photos
@@ -140,7 +146,8 @@ async def analyze_photo(
                 recommendation="Если вас что-то беспокоит, попробуйте загрузить фото проблемного участка крупным планом.",
                 should_visit_vet=False,
             )
-            await _save_diagnosis(telegram_id=x_telegram_id, dtype="photo", condition="здоров", confidence=float(result.get("confidence", 0.9)), severity="низкая")
+            diag_id = await _save_diagnosis(telegram_id=x_telegram_id, dtype="photo", condition="здоров", confidence=float(result.get("confidence", 0.9)), severity="низкая")
+            resp.diagnosis_id = diag_id
             return resp
 
         from urllib.parse import quote
@@ -161,7 +168,7 @@ async def analyze_photo(
 
         # Save diagnosis to DB
         try:
-            await _save_diagnosis(
+            diag_id = await _save_diagnosis(
                 telegram_id=x_telegram_id,
                 dtype="photo",
                 condition=response.condition,
@@ -175,6 +182,7 @@ async def analyze_photo(
                     "recommendation": response.recommendation,
                 },
             )
+            response.diagnosis_id = diag_id
         except Exception as save_err:
             logger.error(f"Failed to save photo diagnosis: {save_err}")
             await log_error_to_db("save_diagnosis_error", f"photo: {save_err}", feature="photo", telegram_id=x_telegram_id)
@@ -266,7 +274,7 @@ async def analyze_lab_results(
 
         # Save diagnosis to DB
         try:
-            await _save_diagnosis(
+            diag_id = await _save_diagnosis(
                 telegram_id=x_telegram_id,
                 dtype="lab_results",
                 condition="Анализы",
@@ -277,6 +285,7 @@ async def analyze_lab_results(
                     "summary": response.summary,
                 },
             )
+            response.diagnosis_id = diag_id
         except Exception as save_err:
             logger.error(f"Failed to save lab diagnosis: {save_err}")
             await log_error_to_db("save_diagnosis_error", f"lab: {save_err}", feature="lab", telegram_id=x_telegram_id)
@@ -339,7 +348,36 @@ async def get_diagnosis_history(
             "confidence": d.confidence,
             "severity": d.severity,
             "result_json": json.loads(d.result_json) if d.result_json else None,
+            "rating": d.rating,
             "created_at": d.created_at.isoformat() if d.created_at else None,
         })
 
     return {"items": items, "total": len(items)}
+
+
+@router.post("/rate/{diagnosis_id}")
+async def rate_diagnosis(
+    diagnosis_id: int,
+    rating: int,
+    x_telegram_id: int = Header(...),
+):
+    """Rate a diagnosis result (1-5 stars)."""
+    if rating < 1 or rating > 5:
+        raise HTTPException(400, "Rating must be 1-5")
+
+    user_id = await _get_user_id(x_telegram_id)
+    if user_id is None:
+        raise HTTPException(404, "User not found")
+
+    async with async_session() as session:
+        diag = (await session.execute(
+            select(Diagnosis).where(Diagnosis.id == diagnosis_id, Diagnosis.user_id == user_id)
+        )).scalar_one_or_none()
+
+        if diag is None:
+            raise HTTPException(404, "Diagnosis not found")
+
+        diag.rating = rating
+        await session.commit()
+
+    return {"ok": True, "diagnosis_id": diagnosis_id, "rating": rating}

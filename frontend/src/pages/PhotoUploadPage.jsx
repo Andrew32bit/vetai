@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { Camera, Upload, Loader2 } from "lucide-react";
 import { t, getLang } from "../i18n";
+import StarRating from "../components/StarRating";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -194,6 +195,7 @@ export default function PhotoUploadPage() {
           <div className="mt-3 text-xs text-gray-400">
             {t("photoConfidence")}: {Math.round(result.confidence * 100)}%
           </div>
+          {result.diagnosis_id && <StarRating diagnosisId={result.diagnosis_id} />}
         </div>
       )}
     </div>

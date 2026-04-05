@@ -25,6 +25,11 @@ async def init_db():
             await conn.execute(text("ALTER TABLE usage_log ADD COLUMN provider VARCHAR(20)"))
         except Exception:
             pass  # Column already exists
+        # Migrate: add 'rating' column to diagnoses if missing
+        try:
+            await conn.execute(text("ALTER TABLE diagnoses ADD COLUMN rating INTEGER"))
+        except Exception:
+            pass  # Column already exists
 
 
 async def get_session():
@@ -85,6 +90,7 @@ class Diagnosis(Base):
     condition = Column(String(200), nullable=True)
     confidence = Column(Float, nullable=True)
     severity = Column(String(20), nullable=True)
+    rating = Column(Integer, nullable=True)  # 1-5 stars
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="diagnoses")
