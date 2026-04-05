@@ -173,6 +173,7 @@ export default function PhotoUploadPage() {
           <p className="text-sm text-orange-700 mt-2">
             {t("photoNoAnimalDesc")}
           </p>
+          {result.diagnosis_id && <StarRating diagnosisId={result.diagnosis_id} />}
         </div>
       ) : result && (
         <div className="mt-4 p-4 rounded-2xl bg-white border border-gray-100 shadow-sm">
