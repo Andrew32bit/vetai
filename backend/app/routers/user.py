@@ -485,3 +485,29 @@ async def get_admin_errors(admin_key: str = Header(...), limit: int = 50):
             ],
             "total": len(rows),
         }
+
+
+@router.delete("/admin/user/{telegram_id}")
+async def delete_user(telegram_id: int, admin_key: str = Header(...)):
+    """Удалить пользователя и все его данные."""
+    if admin_key != "vetai-admin-2026":
+        raise HTTPException(403, "Forbidden")
+
+    async with async_session() as session:
+        user = (await session.execute(
+            select(User).where(User.telegram_id == telegram_id)
+        )).scalar_one_or_none()
+
+        if not user:
+            raise HTTPException(404, "User not found")
+
+        # Delete related data
+        from sqlalchemy import delete
+        await session.execute(delete(Diagnosis).where(Diagnosis.user_id == user.id))
+        await session.execute(delete(ChatSession).where(ChatSession.user_id == user.id))
+        await session.execute(delete(UsageLog).where(UsageLog.user_id == user.id))
+        await session.execute(delete(Pet).where(Pet.user_id == user.id))
+        await session.delete(user)
+        await session.commit()
+
+    return {"ok": True, "deleted": telegram_id}
