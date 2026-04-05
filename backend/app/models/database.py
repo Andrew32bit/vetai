@@ -130,6 +130,16 @@ class Feedback(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class ChatFeedback(Base):
+    __tablename__ = "chat_feedback"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    message_text = Column(Text, nullable=False)  # bot message that was rated
+    reaction = Column(String(10), nullable=False)  # "like" | "dislike"
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class ErrorLog(Base):
     __tablename__ = "error_log"
 

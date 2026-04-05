@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Loader2, MapPin, Trash2 } from "lucide-react";
+import { Send, Loader2, MapPin, Trash2, ThumbsUp, ThumbsDown } from "lucide-react";
 import { t, getLang } from "../i18n";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -28,7 +28,21 @@ export default function ChatPage() {
   });
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [reactions, setReactions] = useState({});
   const scrollRef = useRef();
+
+  const sendReaction = async (msgIndex, reaction, messageText) => {
+    setReactions((prev) => ({ ...prev, [msgIndex]: reaction }));
+    try {
+      const telegramId = localStorage.getItem("vetai_telegram_id") || "12345";
+      await fetch(`${API_URL}/api/v1/chat/feedback?reaction=${reaction}&message_text=${encodeURIComponent(messageText.substring(0, 200))}`, {
+        method: "POST",
+        headers: { "x-telegram-id": telegramId },
+      });
+    } catch (err) {
+      console.error("Feedback error:", err);
+    }
+  };
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -141,19 +155,38 @@ export default function ChatPage() {
       );
     }
 
+    const isBot = msg.role === "assistant" && i > 0;
+
     return (
       <div
         key={i}
         className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
       >
-        <div
-          className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-line ${
-            msg.role === "user"
-              ? "bg-tg-blue text-white rounded-br-sm"
-              : "bg-gray-100 text-gray-800 rounded-bl-sm"
-          }`}
-        >
-          {msg.content}
+        <div className="max-w-[80%]">
+          <div
+            className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-line ${
+              msg.role === "user"
+                ? "bg-tg-blue text-white rounded-br-sm"
+                : "bg-gray-100 text-gray-800 rounded-bl-sm"
+            }`}
+          >
+            {msg.content}
+          </div>
+          {isBot && !reactions[i] && (
+            <div className="flex gap-2 mt-1 ml-1">
+              <button onClick={() => sendReaction(i, "like", msg.content)} className="text-gray-300 hover:text-green-500 transition-colors">
+                <ThumbsUp size={14} />
+              </button>
+              <button onClick={() => sendReaction(i, "dislike", msg.content)} className="text-gray-300 hover:text-red-500 transition-colors">
+                <ThumbsDown size={14} />
+              </button>
+            </div>
+          )}
+          {reactions[i] && (
+            <div className="text-[10px] text-gray-300 mt-1 ml-1">
+              {reactions[i] === "like" ? "👍" : "👎"}
+            </div>
+          )}
         </div>
       </div>
     );

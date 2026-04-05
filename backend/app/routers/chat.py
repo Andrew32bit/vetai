@@ -14,7 +14,7 @@ from app.services import hf_service
 from app.services.hf_service import get_chat_response, AllProvidersDownError
 from app.services.usage_limiter import check_limit, increment, get_remaining
 from app.services.alerting import send_alert, log_error_to_db
-from app.models.database import async_session, User, ChatSession
+from app.models.database import async_session, User, ChatSession, ChatFeedback
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -315,6 +315,35 @@ async def send_message(
             urgency=None,
             clinic_recommendation=None,
         )
+
+
+@router.post("/feedback")
+async def chat_feedback(
+    reaction: str,
+    message_text: str = "",
+    x_telegram_id: int = Header(...),
+):
+    """Save like/dislike for a chat response."""
+    if reaction not in ("like", "dislike"):
+        raise HTTPException(400, "Reaction must be 'like' or 'dislike'")
+
+    try:
+        async with async_session() as db:
+            user = (await db.execute(
+                select(User).where(User.telegram_id == x_telegram_id)
+            )).scalar_one_or_none()
+            if user:
+                fb = ChatFeedback(
+                    user_id=user.id,
+                    message_text=message_text[:500],
+                    reaction=reaction,
+                )
+                db.add(fb)
+                await db.commit()
+    except Exception as e:
+        logger.error(f"Chat feedback save error: {e}")
+
+    return {"ok": True}
 
 
 @router.get("/debug")

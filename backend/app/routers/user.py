@@ -9,7 +9,7 @@ from typing import Optional
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
-from app.models.database import async_session, User, Pet, UsageLog, Diagnosis, ChatSession, ErrorLog
+from app.models.database import async_session, User, Pet, UsageLog, Diagnosis, ChatSession, ErrorLog, ChatFeedback
 from app.services.usage_limiter import get_usage_info
 from app.services.alerting import send_new_user_alert
 
@@ -511,3 +511,38 @@ async def delete_user(telegram_id: int, admin_key: str = Header(...)):
         await session.commit()
 
     return {"ok": True, "deleted": telegram_id}
+
+
+@router.get("/admin/feedback")
+async def get_admin_feedback(admin_key: str = Header(...), limit: int = 50):
+    """Просмотр лайков/дизлайков чата."""
+    if admin_key != "vetai-admin-2026":
+        raise HTTPException(403, "Forbidden")
+
+    async with async_session() as session:
+        rows = (await session.execute(
+            select(ChatFeedback, User.first_name, User.telegram_id)
+            .join(User, ChatFeedback.user_id == User.id)
+            .order_by(ChatFeedback.created_at.desc())
+            .limit(limit)
+        )).all()
+
+        likes = sum(1 for fb, _, _ in rows if fb.reaction == "like")
+        dislikes = sum(1 for fb, _, _ in rows if fb.reaction == "dislike")
+
+        return {
+            "feedback": [
+                {
+                    "id": fb.id,
+                    "first_name": name,
+                    "telegram_id": tg_id,
+                    "reaction": fb.reaction,
+                    "message_text": fb.message_text[:200],
+                    "created_at": fb.created_at.isoformat() if fb.created_at else None,
+                }
+                for fb, name, tg_id in rows
+            ],
+            "total": len(rows),
+            "likes": likes,
+            "dislikes": dislikes,
+        }
