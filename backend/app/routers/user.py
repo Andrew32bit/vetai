@@ -521,26 +521,30 @@ async def get_admin_feedback(admin_key: str = Header(...), limit: int = 50):
 
     async with async_session() as session:
         rows = (await session.execute(
-            select(ChatFeedback, User.first_name, User.telegram_id)
-            .join(User, ChatFeedback.user_id == User.id)
-            .order_by(ChatFeedback.created_at.desc())
-            .limit(limit)
+            text("""
+                SELECT cf.id, cf.reaction, cf.message_text, cf.created_at, u.first_name, u.telegram_id
+                FROM chat_feedback cf
+                JOIN users u ON cf.user_id = u.id
+                ORDER BY cf.created_at DESC
+                LIMIT :lim
+            """),
+            {"lim": limit},
         )).all()
 
-        likes = sum(1 for fb, _, _ in rows if fb.reaction == "like")
-        dislikes = sum(1 for fb, _, _ in rows if fb.reaction == "dislike")
+        likes = sum(1 for r in rows if r[1] == "like")
+        dislikes = sum(1 for r in rows if r[1] == "dislike")
 
         return {
             "feedback": [
                 {
-                    "id": fb.id,
-                    "first_name": name,
-                    "telegram_id": tg_id,
-                    "reaction": fb.reaction,
-                    "message_text": fb.message_text[:200],
-                    "created_at": fb.created_at.isoformat() if fb.created_at else None,
+                    "id": r[0],
+                    "reaction": r[1],
+                    "message_text": (r[2] or "")[:200],
+                    "created_at": str(r[3]) if r[3] else None,
+                    "first_name": r[4],
+                    "telegram_id": r[5],
                 }
-                for fb, name, tg_id in rows
+                for r in rows
             ],
             "total": len(rows),
             "likes": likes,
