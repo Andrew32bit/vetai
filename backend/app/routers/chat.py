@@ -332,20 +332,20 @@ async def submit_chat_feedback(
             user = (await db.execute(
                 select(User).where(User.telegram_id == x_telegram_id)
             )).scalar_one_or_none()
-            if user:
-                fb = ChatFeedback(
-                    user_id=user.id,
-                    message_text=message_text[:500],
-                    reaction=reaction,
-                )
-                db.add(fb)
-                await db.commit()
+            if not user:
+                return {"ok": False, "error": f"user {x_telegram_id} not found"}
+            fb = ChatFeedback(
+                user_id=user.id,
+                message_text=message_text[:500],
+                reaction=reaction,
+            )
+            db.add(fb)
+            await db.commit()
+            return {"ok": True, "id": fb.id}
     except Exception as e:
         logger.error(f"Chat feedback save error: {e}")
         await log_error_to_db("chat_feedback_error", str(e)[:500], feature="chat", telegram_id=x_telegram_id)
         return {"ok": False, "error": str(e)[:200]}
-
-    return {"ok": True}
 
 
 @router.get("/debug")
