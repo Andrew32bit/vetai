@@ -35,9 +35,13 @@ export default function ChatPage() {
     setReactions((prev) => ({ ...prev, [msgIndex]: reaction }));
     try {
       const telegramId = localStorage.getItem("vetai_telegram_id") || "12345";
-      await fetch(`${API_URL}/api/v1/chat/feedback?reaction=${reaction}&message_text=${encodeURIComponent(messageText.substring(0, 200))}`, {
+      await fetch(`${API_URL}/api/v1/chat/feedback`, {
         method: "POST",
-        headers: { "x-telegram-id": telegramId },
+        headers: {
+          "Content-Type": "application/json",
+          "x-telegram-id": telegramId,
+        },
+        body: JSON.stringify({ reaction, message_text: messageText.substring(0, 200) }),
       });
     } catch (err) {
       console.error("Feedback error:", err);

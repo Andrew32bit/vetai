@@ -317,14 +317,18 @@ async def send_message(
         )
 
 
+class FeedbackRequest(BaseModel):
+    reaction: str
+    message_text: str = ""
+
+
 @router.post("/feedback")
 async def submit_chat_feedback(
-    reaction: str,
-    message_text: str = "",
+    request: FeedbackRequest,
     x_telegram_id: int = Header(...),
 ):
     """Save like/dislike for a chat response."""
-    if reaction not in ("like", "dislike"):
+    if request.reaction not in ("like", "dislike"):
         raise HTTPException(400, "Reaction must be 'like' or 'dislike'")
 
     try:
@@ -336,8 +340,8 @@ async def submit_chat_feedback(
                 return {"ok": False, "error": f"user {x_telegram_id} not found"}
             fb = ChatFeedback(
                 user_id=user.id,
-                message_text=message_text[:500],
-                reaction=reaction,
+                message_text=request.message_text[:500],
+                reaction=request.reaction,
             )
             db.add(fb)
             await db.commit()

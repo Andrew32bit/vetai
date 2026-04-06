@@ -6,7 +6,7 @@ from datetime import datetime, date
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from sqlalchemy.orm import selectinload
 
 from app.models.database import async_session, User, Pet, UsageLog, Diagnosis, ChatSession, ErrorLog, ChatFeedback
@@ -513,7 +513,7 @@ async def delete_user(telegram_id: int, admin_key: str = Header(...)):
     return {"ok": True, "deleted": telegram_id}
 
 
-@router.get("/admin/feedback")
+@router.get("/admin/chat-feedback")
 async def get_admin_feedback(admin_key: str = Header(...), limit: int = 50):
     """Просмотр лайков/дизлайков чата."""
     if admin_key != "vetai-admin-2026":
