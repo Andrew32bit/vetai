@@ -520,6 +520,12 @@ async def get_admin_feedback(admin_key: str = Header(...), limit: int = 50):
         raise HTTPException(403, "Forbidden")
 
     async with async_session() as session:
+        # Debug: check if table exists and has rows
+        try:
+            count_check = (await session.execute(text("SELECT COUNT(*) FROM chat_feedback"))).scalar()
+        except Exception as e:
+            return {"error": f"table check failed: {e}", "total": 0}
+
         rows = (await session.execute(
             text("""
                 SELECT cf.id, cf.reaction, cf.message_text, cf.created_at, u.first_name, u.telegram_id
@@ -547,6 +553,7 @@ async def get_admin_feedback(admin_key: str = Header(...), limit: int = 50):
                 for r in rows
             ],
             "total": len(rows),
+            "raw_count": count_check,
             "likes": likes,
             "dislikes": dislikes,
         }
