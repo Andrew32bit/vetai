@@ -30,6 +30,19 @@ async def init_db():
             await conn.execute(text("ALTER TABLE diagnoses ADD COLUMN rating INTEGER"))
         except Exception:
             pass  # Column already exists
+        # Migrate: create chat_feedback table if missing
+        try:
+            await conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS chat_feedback (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL REFERENCES users(id),
+                    message_text TEXT NOT NULL,
+                    reaction VARCHAR(10) NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+        except Exception:
+            pass
 
 
 async def get_session():
