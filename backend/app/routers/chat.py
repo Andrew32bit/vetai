@@ -318,7 +318,7 @@ async def send_message(
 
 
 @router.post("/feedback")
-async def chat_feedback(
+async def submit_chat_feedback(
     reaction: str,
     message_text: str = "",
     x_telegram_id: int = Header(...),
@@ -342,6 +342,8 @@ async def chat_feedback(
                 await db.commit()
     except Exception as e:
         logger.error(f"Chat feedback save error: {e}")
+        await log_error_to_db("chat_feedback_error", str(e)[:500], feature="chat", telegram_id=x_telegram_id)
+        return {"ok": False, "error": str(e)[:200]}
 
     return {"ok": True}
 
