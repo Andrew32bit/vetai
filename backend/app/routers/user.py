@@ -580,16 +580,19 @@ async def admin_send_message(req: BroadcastRequest, admin_key: str = Header(...)
         raise HTTPException(403, "Forbidden")
 
     import time
-    from app.services.alerting import _last_broadcast, BROADCAST_COOLDOWN
     import app.services.alerting as alerting_mod
 
-    now = time.time()
-    if now - alerting_mod._last_broadcast < alerting_mod.BROADCAST_COOLDOWN:
-        remaining = int(alerting_mod.BROADCAST_COOLDOWN - (now - alerting_mod._last_broadcast))
-        raise HTTPException(429, f"Broadcast cooldown: {remaining}s remaining")
+    is_single = isinstance(req.target, int) or (isinstance(req.target, str) and req.target.isdigit())
+
+    # Rate limit only for mass broadcasts, not single user messages
+    if not is_single:
+        now = time.time()
+        if now - alerting_mod._last_broadcast < alerting_mod.BROADCAST_COOLDOWN:
+            remaining = int(alerting_mod.BROADCAST_COOLDOWN - (now - alerting_mod._last_broadcast))
+            raise HTTPException(429, f"Broadcast cooldown: {remaining}s remaining")
 
     async with async_session() as session:
-        if isinstance(req.target, int) or (isinstance(req.target, str) and req.target.isdigit()):
+        if is_single:
             tid = int(req.target)
             rows = (await session.execute(
                 select(User.telegram_id, User.language_code).where(User.telegram_id == tid)
@@ -623,7 +626,8 @@ async def admin_send_message(req: BroadcastRequest, admin_key: str = Header(...)
         else:
             failed += 1
 
-    alerting_mod._last_broadcast = time.time()
+    if not is_single:
+        alerting_mod._last_broadcast = time.time()
 
     return {
         "sent": sent,
