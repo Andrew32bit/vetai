@@ -169,3 +169,84 @@ def _send_milestone_alert(milestone: int, total: int):
         urllib.request.urlopen(req, timeout=5)
     except Exception as e:
         logger.error(f"Failed to send milestone alert: {e}")
+
+
+# --- User-facing messages ---
+
+MINIAPP_URL = "https://t.me/vetai_app_bot/app"
+
+# Rate limit for broadcasts: max 1 per hour
+_last_broadcast: float = 0
+BROADCAST_COOLDOWN = 3600
+
+
+def send_user_message(telegram_id: int, text: str, language: str = "ru") -> bool:
+    """Send a message to a user via Telegram Bot API with Mini App button.
+    Returns True on success, False on failure. Returns None if user blocked the bot."""
+    settings = get_settings()
+    if not settings.TELEGRAM_BOT_TOKEN:
+        logger.warning("Cannot send message: TELEGRAM_BOT_TOKEN not set")
+        return False
+
+    button_text = "Открыть VetAI" if language.startswith("ru") else "Open VetAI"
+    payload = {
+        "chat_id": telegram_id,
+        "text": text,
+        "parse_mode": "HTML",
+        "reply_markup": {
+            "inline_keyboard": [[
+                {"text": button_text, "url": MINIAPP_URL}
+            ]]
+        },
+    }
+
+    try:
+        data = json.dumps(payload).encode()
+        req = urllib.request.Request(
+            f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage",
+            data=data,
+            headers={"Content-Type": "application/json"},
+        )
+        resp = urllib.request.urlopen(req, timeout=10)
+        return True
+    except urllib.error.HTTPError as e:
+        if e.code == 403:
+            logger.info(f"User {telegram_id} blocked the bot")
+            return None
+        logger.error(f"Failed to send message to {telegram_id}: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Failed to send message to {telegram_id}: {e}")
+        return False
+
+
+def send_welcome_message(telegram_id: int, language_code: str = "ru"):
+    """Send welcome message after onboarding with CTA to try photo diagnosis."""
+    if language_code.startswith("ru"):
+        text = (
+            "Отлично! Всё готово 🐾\n\n"
+            "Попробуйте сфотографировать глаза, уши или кожу питомца — "
+            "VetAI даст предварительную оценку за 30 секунд. Это бесплатно!"
+        )
+    else:
+        text = (
+            "All set! 🐾\n\n"
+            "Try taking a photo of your pet's eyes, ears, or skin — "
+            "VetAI will give you a preliminary assessment in 30 seconds. It's free!"
+        )
+    return send_user_message(telegram_id, text, language_code)
+
+
+def send_reminder_message(telegram_id: int, language_code: str = "ru"):
+    """Send 24h reminder to users who registered but never made a request."""
+    if language_code.startswith("ru"):
+        text = (
+            "Привет! Попробуйте сфотографировать глаза, уши или кожу питомца — "
+            "VetAI даст предварительную оценку за 30 секунд. Это бесплатно 🐾"
+        )
+    else:
+        text = (
+            "Hi! Try taking a photo of your pet's eyes, ears, or skin — "
+            "VetAI will give you a preliminary assessment in 30 seconds. It's free 🐾"
+        )
+    return send_user_message(telegram_id, text, language_code)

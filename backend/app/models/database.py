@@ -43,6 +43,11 @@ async def init_db():
             """))
         except Exception:
             pass
+        # Migrate: add 'reminder_sent' column to users if missing
+        try:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN reminder_sent BOOLEAN DEFAULT 0"))
+        except Exception:
+            pass
 
 
 async def get_session():
@@ -68,6 +73,7 @@ class User(Base):
     subscription_tier = Column(String(20), default="beta")  # beta | free | monthly | annual
     subscription_expires = Column(DateTime, nullable=True)
     daily_limit_override = Column(Integer, nullable=True)  # if set, overrides default daily limit
+    reminder_sent = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     pets = relationship("Pet", back_populates="owner")
