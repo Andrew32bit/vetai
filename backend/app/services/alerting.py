@@ -173,7 +173,7 @@ def _send_milestone_alert(milestone: int, total: int):
 
 # --- User-facing messages ---
 
-MINIAPP_URL = "https://t.me/vetai_app_bot"
+MINIAPP_URL = "https://andrew32bit.github.io/vetai/"
 
 # Rate limit for broadcasts: max 1 per hour
 _last_broadcast: float = 0
@@ -195,7 +195,7 @@ def send_user_message(telegram_id: int, text: str, language: str = "ru") -> bool
         "parse_mode": "HTML",
         "reply_markup": {
             "inline_keyboard": [[
-                {"text": button_text, "url": MINIAPP_URL}
+                {"text": button_text, "web_app": {"url": MINIAPP_URL}}
             ]]
         },
     }
