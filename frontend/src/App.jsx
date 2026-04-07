@@ -41,7 +41,7 @@ function AppContent() {
       localStorage.setItem("vetai_language", lang);
     } catch {
       if (!localStorage.getItem("vetai_language")) {
-        localStorage.setItem("vetai_language", "ru");
+        localStorage.setItem("vetai_language", "en");
       }
     }
 

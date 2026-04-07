@@ -157,10 +157,12 @@ async def register_user(data: RegisterRequest):
         session.add(pet)
         await session.commit()
 
+        lang = user.language_code or "ru"
+        message = "Welcome to VetAI!" if not lang.startswith("ru") else "Добро пожаловать в VetAI!"
         return {
             "ok": True,
             "user_id": user.id,
-            "message": "Добро пожаловать в VetAI!",
+            "message": message,
         }
 
 

@@ -102,10 +102,11 @@ async def analyze_photo(
     """Upload pet photo → HuggingFace Vision LLM analysis."""
     if not await check_limit(x_telegram_id):
         remaining = await get_remaining(x_telegram_id)
+        msg = "Daily limit of 3 requests reached. Try again tomorrow." if language == "en" else "Лимит 3 запроса в день исчерпан. Попробуйте завтра."
         raise HTTPException(
             status_code=429,
             detail={
-                "message": "Лимит 3 запроса в день исчерпан. Попробуйте завтра.",
+                "message": msg,
                 "remaining": remaining,
             },
         )
@@ -123,45 +124,70 @@ async def analyze_photo(
         await increment(x_telegram_id, "photo", provider="groq")
 
         # Handle non-animal photos
-        if result.get("condition") == "не_животное":
-            resp = PhotoDiagnosisResponse(
-                condition="не_животное",
-                confidence=0.0,
-                severity="низкая",
-                description="На фото не обнаружено животное.",
-                recommendation="Пожалуйста, загрузите фото вашего питомца.",
-                should_visit_vet=False,
-            )
-            diag_id = await _save_diagnosis(telegram_id=x_telegram_id, dtype="photo", condition="не_животное", severity="низкая")
+        if result.get("condition") in ("не_животное", "not_animal"):
+            if language == "en":
+                resp = PhotoDiagnosisResponse(
+                    condition="not_animal",
+                    confidence=0.0,
+                    severity="low",
+                    description="No animal was found in the photo.",
+                    recommendation="Please upload a photo of your pet.",
+                    should_visit_vet=False,
+                )
+            else:
+                resp = PhotoDiagnosisResponse(
+                    condition="не_животное",
+                    confidence=0.0,
+                    severity="низкая",
+                    description="На фото не обнаружено животное.",
+                    recommendation="Пожалуйста, загрузите фото вашего питомца.",
+                    should_visit_vet=False,
+                )
+            diag_id = await _save_diagnosis(telegram_id=x_telegram_id, dtype="photo", condition=resp.condition, severity=resp.severity)
             resp.diagnosis_id = diag_id
             return resp
 
         # Handle healthy animal photos
-        if result.get("condition") == "здоров":
-            resp = PhotoDiagnosisResponse(
-                condition="здоров",
-                confidence=float(result.get("confidence", 0.9)),
-                severity="низкая",
-                description="На фото животное выглядит здоровым, видимых проблем не обнаружено.",
-                recommendation="Если вас что-то беспокоит, попробуйте загрузить фото проблемного участка крупным планом.",
-                should_visit_vet=False,
-            )
-            diag_id = await _save_diagnosis(telegram_id=x_telegram_id, dtype="photo", condition="здоров", confidence=float(result.get("confidence", 0.9)), severity="низкая")
+        if result.get("condition") in ("здоров", "healthy"):
+            if language == "en":
+                resp = PhotoDiagnosisResponse(
+                    condition="healthy",
+                    confidence=float(result.get("confidence", 0.9)),
+                    severity="low",
+                    description="The animal in the photo appears healthy, no visible problems detected.",
+                    recommendation="If something concerns you, try uploading a close-up photo of the problem area.",
+                    should_visit_vet=False,
+                )
+            else:
+                resp = PhotoDiagnosisResponse(
+                    condition="здоров",
+                    confidence=float(result.get("confidence", 0.9)),
+                    severity="низкая",
+                    description="На фото животное выглядит здоровым, видимых проблем не обнаружено.",
+                    recommendation="Если вас что-то беспокоит, попробуйте загрузить фото проблемного участка крупным планом.",
+                    should_visit_vet=False,
+                )
+            diag_id = await _save_diagnosis(telegram_id=x_telegram_id, dtype="photo", condition=resp.condition, confidence=float(result.get("confidence", 0.9)), severity=resp.severity)
             resp.diagnosis_id = diag_id
             return resp
 
         from urllib.parse import quote
         clinic_link = None
-        if result.get("should_visit_vet") or result.get("severity") in ("средняя", "высокая"):
-            query = f"ветеринарная клиника {city}" if city else "ветеринарная клиника рядом"
-            clinic_link = f"https://yandex.ru/maps/?text={quote(query)}"
+        severity_trigger = ("средняя", "высокая", "medium", "high")
+        if result.get("should_visit_vet") or result.get("severity") in severity_trigger:
+            if language == "en":
+                query = f"veterinary clinic {city}" if city else "veterinary clinic near me"
+                clinic_link = f"https://www.google.com/maps/search/{quote(query)}"
+            else:
+                query = f"ветеринарная клиника {city}" if city else "ветеринарная клиника рядом"
+                clinic_link = f"https://yandex.ru/maps/?text={quote(query)}"
 
         response = PhotoDiagnosisResponse(
-            condition=result.get("condition", "Не определено"),
+            condition=result.get("condition", "Could not determine" if language == "en" else "Не определено"),
             confidence=float(result.get("confidence", 0.0)),
-            severity=result.get("severity", "средняя"),
+            severity=result.get("severity", "medium" if language == "en" else "средняя"),
             description=result.get("description", ""),
-            recommendation=result.get("recommendation", "Рекомендуем консультацию ветеринара."),
+            recommendation=result.get("recommendation", "We recommend consulting a veterinarian." if language == "en" else "Рекомендуем консультацию ветеринара."),
             should_visit_vet=result.get("should_visit_vet", True),
             clinic_link=clinic_link,
         )
@@ -192,6 +218,15 @@ async def analyze_photo(
     except AllProvidersDownError:
         logger.error("All AI providers are down (photo)")
         await log_error_to_db("all_providers_down", "Groq и Claude оба недоступны", feature="photo", telegram_id=x_telegram_id)
+        if language == "en":
+            return PhotoDiagnosisResponse(
+                condition="High demand",
+                confidence=0.0,
+                severity="medium",
+                description="We're experiencing high demand right now! We're scaling up our servers. Please try again in 5-10 minutes.",
+                recommendation="Please try again in a few minutes.",
+                should_visit_vet=False,
+            )
         return PhotoDiagnosisResponse(
             condition="Высокая нагрузка",
             confidence=0.0,
@@ -209,6 +244,16 @@ async def analyze_photo(
             user_telegram_id=x_telegram_id,
             feature="photo",
         )
+        if language == "en":
+            return PhotoDiagnosisResponse(
+                condition="Analysis error",
+                confidence=0.0,
+                severity="medium",
+                description="Could not analyze the photo. Try uploading a different image.",
+                recommendation="We recommend showing your pet to a veterinarian for an accurate diagnosis.",
+                should_visit_vet=True,
+                clinic_link="https://www.google.com/maps/search/veterinary%20clinic%20near%20me",
+            )
         return PhotoDiagnosisResponse(
             condition="Ошибка анализа",
             confidence=0.0,
@@ -233,10 +278,11 @@ async def analyze_lab_results(
     """Upload lab results photo/PDF → OCR → LLM interpretation."""
     if not await check_limit(x_telegram_id):
         remaining = await get_remaining(x_telegram_id)
+        msg = "Daily limit of 3 requests reached. Try again tomorrow." if language == "en" else "Лимит 3 запроса в день исчерпан. Попробуйте завтра."
         raise HTTPException(
             status_code=429,
             detail={
-                "message": "Лимит 3 запроса в день исчерпан. Попробуйте завтра.",
+                "message": msg,
                 "remaining": remaining,
             },
         )
@@ -269,7 +315,7 @@ async def analyze_lab_results(
             extracted_text=result.get("extracted_text", ""),
             parsed_values=result.get("parsed_values", {}),
             anomalies=result.get("anomalies", []),
-            summary=result.get("summary", "Не удалось интерпретировать результаты."),
+            summary=result.get("summary", "Could not interpret the results." if language == "en" else "Не удалось интерпретировать результаты."),
         )
 
         # Save diagnosis to DB
@@ -295,11 +341,12 @@ async def analyze_lab_results(
     except AllProvidersDownError:
         logger.error("All AI providers are down (lab)")
         await log_error_to_db("all_providers_down", "Groq и Claude оба недоступны", feature="lab", telegram_id=x_telegram_id)
+        summary = "We're experiencing high demand right now! Please try again in 5-10 minutes." if language == "en" else "Сейчас очень много пользователей! Мы срочно масштабируем серверы. Попробуйте через 5-10 минут."
         return LabResultsResponse(
             extracted_text="",
             parsed_values={},
             anomalies=[],
-            summary="Сейчас очень много пользователей! Мы срочно масштабируем серверы. Попробуйте через 5-10 минут.",
+            summary=summary,
         )
     except Exception as e:
         logger.error(f"Lab results analysis error: {e}")
@@ -310,11 +357,12 @@ async def analyze_lab_results(
             user_telegram_id=x_telegram_id,
             feature="lab_results",
         )
+        summary = "Analysis error. Try uploading a clearer image." if language == "en" else "Ошибка при анализе. Попробуйте загрузить более чёткое изображение."
         return LabResultsResponse(
             extracted_text=extracted_text,
             parsed_values={},
             anomalies=[],
-            summary="Ошибка при анализе. Попробуйте загрузить более чёткое изображение.",
+            summary=summary,
         )
 
 

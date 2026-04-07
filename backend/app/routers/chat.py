@@ -211,10 +211,12 @@ async def send_message(
     """Send message to symptom chat via HuggingFace LLM."""
     if not await check_limit(x_telegram_id):
         remaining = await get_remaining(x_telegram_id)
+        language = request.language or "ru"
+        msg = "Daily limit of 3 requests reached. Try again tomorrow." if language == "en" else "Лимит 3 запроса в день исчерпан. Попробуйте завтра."
         raise HTTPException(
             status_code=429,
             detail={
-                "message": "Лимит 3 запроса в день исчерпан. Попробуйте завтра.",
+                "message": msg,
                 "remaining": remaining,
             },
         )
