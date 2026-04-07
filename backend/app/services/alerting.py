@@ -173,7 +173,7 @@ def _send_milestone_alert(milestone: int, total: int):
 
 # --- User-facing messages ---
 
-MINIAPP_URL = "https://t.me/vetai_app_bot/app"
+MINIAPP_URL = "https://t.me/vetai_app_bot"
 
 # Rate limit for broadcasts: max 1 per hour
 _last_broadcast: float = 0
