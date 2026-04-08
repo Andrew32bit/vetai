@@ -160,7 +160,7 @@ export default function HomePage() {
           <div className="mt-2 text-center text-xs text-green-600">{t("feedbackThanks")}</div>
         )}
       </div>
-      <div className="text-center text-[9px] text-gray-300 mt-2">v1.3</div>
+      <div className="text-center text-[9px] text-gray-300 mt-2">v1.3.1</div>
     </div>
   );
 }
