@@ -140,11 +140,31 @@ def send_new_user_alert(
     except Exception as e:
         logger.error(f"Failed to send new user alert: {e}")
 
-    # Check milestones
+    # Check milestones (persisted via error_log to survive restarts)
     for m in MILESTONES:
         if total_users >= m and m not in _milestones_sent:
             _milestones_sent.add(m)
-            _send_milestone_alert(m, total_users)
+            if not _milestone_already_sent(m):
+                _send_milestone_alert(m, total_users)
+
+
+def _milestone_already_sent(milestone: int) -> bool:
+    """Check if milestone alert was already sent (persisted in error_log)."""
+    try:
+        import sqlite3
+        settings = get_settings()
+        db_path = settings.DATABASE_URL.replace("sqlite+aiosqlite:///", "")
+        conn = sqlite3.connect(db_path)
+        cur = conn.execute(
+            "SELECT COUNT(*) FROM error_log WHERE error_type = 'milestone' AND message = ?",
+            (str(milestone),)
+        )
+        exists = cur.fetchone()[0] > 0
+        conn.close()
+        return exists
+    except Exception as e:
+        logger.error(f"Failed to check milestone: {e}")
+        return False
 
 
 def _send_milestone_alert(milestone: int, total: int):
@@ -167,6 +187,19 @@ def _send_milestone_alert(milestone: int, total: int):
             headers={"Content-Type": "application/json"},
         )
         urllib.request.urlopen(req, timeout=5)
+        # Persist milestone to DB so it won't resend after restart
+        try:
+            import sqlite3
+            db_path = settings.DATABASE_URL.replace("sqlite+aiosqlite:///", "")
+            conn = sqlite3.connect(db_path)
+            conn.execute(
+                "INSERT INTO error_log (error_type, message, feature) VALUES ('milestone', ?, 'alert')",
+                (str(milestone),)
+            )
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass
     except Exception as e:
         logger.error(f"Failed to send milestone alert: {e}")
 
