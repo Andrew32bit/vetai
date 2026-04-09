@@ -37,11 +37,15 @@ function AppContent() {
     // Detect language from Telegram
     try {
       const langCode = WebApp.initDataUnsafe?.user?.language_code || "";
-      const lang = langCode.startsWith("ru") ? "ru" : "en";
-      localStorage.setItem("vetai_language", lang);
+      if (langCode) {
+        const lang = langCode.startsWith("ru") ? "ru" : "en";
+        localStorage.setItem("vetai_language", lang);
+      } else if (!localStorage.getItem("vetai_language")) {
+        localStorage.setItem("vetai_language", "ru");
+      }
     } catch {
       if (!localStorage.getItem("vetai_language")) {
-        localStorage.setItem("vetai_language", "en");
+        localStorage.setItem("vetai_language", "ru");
       }
     }
 
