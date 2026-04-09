@@ -11,22 +11,36 @@ from app.services.alerting import send_user_message
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+DISCLAIMER_RU = (
+    "\n\n⚠️ VetAI — информационный сервис. Не является медицинской услугой, "
+    "не ставит диагнозы и не назначает лечение. Результаты носят предварительный "
+    "характер. Всегда консультируйтесь с лицензированным ветеринаром."
+)
+
+DISCLAIMER_EN = (
+    "\n\n⚠️ VetAI is an informational tool only. It does not provide medical "
+    "diagnoses, treatment or prescriptions. Results are preliminary assessments. "
+    "Always consult a licensed veterinarian for professional advice."
+)
+
 WELCOME_RU = (
-    "Привет! Я VetAI — ИИ-ветеринар 🐾\n\n"
-    "Я помогу оценить здоровье вашего питомца:\n"
-    "📸 Фото — анализ кожи, глаз, ушей\n"
-    "🔬 Анализы — расшифровка из фото/PDF\n"
+    "Привет! Я VetAI — ИИ-помощник для владельцев питомцев.\n\n"
+    "Я помогу предварительно оценить состояние вашего питомца:\n"
+    "📸 Фото — визуальный анализ кожи, глаз, ушей\n"
+    "🔬 Анализы — расшифровка результатов из фото/PDF\n"
     "💬 Чат — описание симптомов\n\n"
     "Нажмите кнопку ниже, чтобы начать!"
+    + DISCLAIMER_RU
 )
 
 WELCOME_EN = (
-    "Hi! I'm VetAI — your AI veterinarian 🐾\n\n"
-    "I can help assess your pet's health:\n"
-    "📸 Photo — skin, eyes, ears analysis\n"
+    "Hi! I'm VetAI — an AI-powered assistant for pet owners.\n\n"
+    "I can help with a preliminary assessment of your pet's condition:\n"
+    "📸 Photo — visual analysis of skin, eyes, ears\n"
     "🔬 Lab results — interpretation from photo/PDF\n"
     "💬 Chat — describe symptoms\n\n"
     "Tap the button below to get started!"
+    + DISCLAIMER_EN
 )
 
 
