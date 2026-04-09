@@ -195,7 +195,9 @@ def _photo_prompt(pet_species: str, complaint: str | None = None, language: str 
 def _photo_prompt_en(pet_species: str, complaint: str | None = None) -> str:
     """Build English photo analysis prompt."""
     complaint_text = f"\nOwner's complaint: {complaint}" if complaint else ""
-    return f"""You are an experienced veterinarian. Analyze the photo.{complaint_text}
+    return f"""CRITICAL LANGUAGE REQUIREMENT: You MUST respond ENTIRELY in English. Every single word must be in English. Do NOT use Russian, Chinese, or any other language. This is mandatory.
+
+You are an experienced veterinarian. Analyze the photo.{complaint_text}
 
 STEP 1: Determine if there is an animal in the photo.
 - If there is NO animal (person, object, food, landscape, etc.) — return:
@@ -238,10 +240,45 @@ Respond STRICTLY in JSON format:
 {{"condition": "specific diagnosis in English", "confidence": 0.0-1.0, "severity": "low|medium|high", "description": "what is visible in the photo + diagnosis rationale", "recommendation": "specific treatment and examination recommendations", "should_visit_vet": true|false}}"""
 
 
-def _parse_vision_result(raw_text: str, language: str = "ru") -> dict:
+def _has_cyrillic(text: str) -> bool:
+    """Check if text contains Cyrillic characters."""
+    return bool(re.search(r'[а-яА-ЯёЁ]', text))
+
+
+async def _translate_result_to_en(result: dict) -> dict:
+    """Translate Russian vision result fields to English using Claude."""
+    try:
+        settings = get_settings()
+        if not settings.CLAUDE_API_KEY:
+            return result
+        prompt = f"""Translate this veterinary diagnosis JSON from Russian to English. Keep the JSON structure exactly the same, only translate the text values. Return ONLY valid JSON, no markdown.
+
+{json.dumps(result, ensure_ascii=False)}"""
+        client = _get_claude_client()
+        response = await client.messages.create(
+            model=settings.CLAUDE_MODEL,
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        translated_text = response.content[0].text
+        logger.info(f"Claude translation: {translated_text[:100]}")
+        translated = _parse_json_response(translated_text)
+        if translated:
+            return translated
+        logger.warning("Could not parse translated JSON")
+    except Exception as e:
+        logger.warning(f"Translation fallback failed: {e}")
+    return result
+
+
+async def _parse_vision_result(raw_text: str, language: str = "ru") -> dict:
     """Parse vision model response into structured dict."""
     parsed = _parse_json_response(raw_text)
     if parsed:
+        # If EN requested but response is in Russian, translate
+        if language == "en" and _has_cyrillic(parsed.get("condition", "") + parsed.get("description", "")):
+            logger.info("EN requested but got Russian response, translating via Claude")
+            return await _translate_result_to_en(parsed)
         return parsed
     if language == "en":
         return {
@@ -275,13 +312,14 @@ async def analyze_photo(
 
     b64_image = base64.b64encode(image_bytes).decode("utf-8")
     prompt = _photo_prompt(pet_species, complaint, language=language)
+    logger.info(f"Photo prompt language={language!r}, prompt starts with: {prompt[:80]!r}")
 
     # If Groq vision is rate-limited, go straight to Claude
     if time.time() < _groq_vision_limited_until:
         logger.info("Groq vision rate-limited, using Claude vision fallback")
         raw_text = await _claude_vision_fallback(b64_image, content_type, prompt)
         last_provider = "claude"
-        return _parse_vision_result(raw_text, language=language)
+        return await _parse_vision_result(raw_text, language=language)
 
     # Try Groq vision
     data_uri = f"data:{content_type};base64,{b64_image}"
@@ -327,7 +365,7 @@ async def analyze_photo(
             send_alert(error_type="all_providers_down", error_message=f"Groq и Claude vision оба недоступны: {claude_err}", feature="photo")
             raise AllProvidersDownError("Все AI-провайдеры временно недоступны")
 
-    return _parse_vision_result(raw_text, language=language)
+    return await _parse_vision_result(raw_text, language=language)
 
 
 async def interpret_lab_results_image(
@@ -343,7 +381,9 @@ async def interpret_lab_results_image(
     b64_image = base64.b64encode(image_bytes).decode("utf-8")
 
     if language == "en":
-        prompt = f"""You are an experienced veterinarian. The photo shows lab results for a {pet_species}.
+        prompt = f"""CRITICAL LANGUAGE REQUIREMENT: You MUST respond ENTIRELY in English. Every single word must be in English. Do NOT use Russian or any other language.
+
+You are an experienced veterinarian. The photo shows lab results for a {pet_species}.
 
 STEP 1: Read ALL values from the photo (parameter names and their numerical values).
 STEP 2: Determine which parameters are outside the normal range for a {pet_species}.

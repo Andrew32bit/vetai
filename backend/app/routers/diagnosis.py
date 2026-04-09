@@ -7,7 +7,7 @@ Diagnosis endpoints:
 
 import json
 import logging
-from fastapi import APIRouter, UploadFile, File, Header, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, Header, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy import select
@@ -92,11 +92,11 @@ class LabResultsResponse(BaseModel):
 @router.post("/photo", response_model=PhotoDiagnosisResponse)
 async def analyze_photo(
     photo: UploadFile = File(...),
-    pet_id: Optional[int] = None,
-    species: str = "питомца",
-    complaint: Optional[str] = None,
-    city: Optional[str] = None,
-    language: str = "ru",
+    pet_id: Optional[str] = Form(None),
+    species: str = Form("питомца"),
+    complaint: Optional[str] = Form(None),
+    city: Optional[str] = Form(None),
+    language: str = Form("ru"),
     x_telegram_id: int = Header(...),
 ):
     """Upload pet photo → HuggingFace Vision LLM analysis."""
@@ -110,6 +110,7 @@ async def analyze_photo(
                 "remaining": remaining,
             },
         )
+    logger.info(f"Photo analysis: language={language!r}, species={species!r}, telegram_id={x_telegram_id}")
     try:
         image_bytes = await photo.read()
         content_type = photo.content_type or "image/jpeg"
@@ -270,9 +271,9 @@ async def analyze_photo(
 @router.post("/lab-results", response_model=LabResultsResponse)
 async def analyze_lab_results(
     file: UploadFile = File(...),
-    pet_id: Optional[int] = None,
-    species: str = "питомца",
-    language: str = "ru",
+    pet_id: Optional[str] = Form(None),
+    species: str = Form("питомца"),
+    language: str = Form("ru"),
     x_telegram_id: int = Header(...),
 ):
     """Upload lab results photo/PDF → OCR → LLM interpretation."""
