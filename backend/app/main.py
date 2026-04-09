@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import diagnosis, chat, user, health
+from app.routers import diagnosis, chat, user, health, webhook
 
 settings = get_settings()
 
@@ -38,6 +38,7 @@ app.include_router(health.router, tags=["health"])
 app.include_router(user.router, prefix="/api/v1/users", tags=["users"])
 app.include_router(diagnosis.router, prefix="/api/v1/diagnosis", tags=["diagnosis"])
 app.include_router(chat.router, prefix="/api/v1/chat", tags=["chat"])
+app.include_router(webhook.router, tags=["webhook"])
 
 
 @app.on_event("startup")
@@ -51,6 +52,30 @@ async def startup():
     await init_db()
     asyncio.create_task(periodic_backup())
     asyncio.create_task(_keep_alive())
+    _register_webhook()
+
+
+def _register_webhook():
+    """Register Telegram webhook on startup."""
+    import urllib.request
+    import json as _json
+    import logging
+    _logger = logging.getLogger(__name__)
+    try:
+        _settings = get_settings()
+        if not _settings.TELEGRAM_BOT_TOKEN:
+            return
+        webhook_url = "https://vetai-backend.azurewebsites.net/webhook"
+        data = _json.dumps({"url": webhook_url}).encode()
+        req = urllib.request.Request(
+            f"https://api.telegram.org/bot{_settings.TELEGRAM_BOT_TOKEN}/setWebhook",
+            data=data,
+            headers={"Content-Type": "application/json"},
+        )
+        resp = urllib.request.urlopen(req, timeout=10)
+        _logger.info(f"Webhook registered: {resp.read().decode()}")
+    except Exception as e:
+        _logger.error(f"Failed to register webhook: {e}")
 
 
 async def _keep_alive():
