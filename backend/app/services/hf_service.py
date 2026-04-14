@@ -319,6 +319,42 @@ async def _parse_vision_result(raw_text: str, language: str = "ru") -> dict:
     }
 
 
+MAX_IMAGE_BYTES = 4 * 1024 * 1024  # 4MB (Claude limit is 5MB, leave margin)
+
+
+def _compress_image(image_bytes: bytes, content_type: str, max_bytes: int = MAX_IMAGE_BYTES) -> tuple[bytes, str]:
+    """Compress image if it exceeds max_bytes. Returns (bytes, content_type)."""
+    if len(image_bytes) <= max_bytes:
+        return image_bytes, content_type
+    try:
+        from PIL import Image
+        import io
+        img = Image.open(io.BytesIO(image_bytes))
+        # Convert RGBA/palette to RGB for JPEG
+        if img.mode in ("RGBA", "P", "LA"):
+            img = img.convert("RGB")
+        # Resize if very large
+        max_dim = 2048
+        if max(img.size) > max_dim:
+            img.thumbnail((max_dim, max_dim), Image.LANCZOS)
+        # Compress as JPEG with decreasing quality
+        for quality in (85, 70, 50, 30):
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=quality)
+            if buf.tell() <= max_bytes:
+                logger.info(f"Compressed image: {len(image_bytes)} -> {buf.tell()} bytes (q={quality})")
+                return buf.getvalue(), "image/jpeg"
+        # Last resort: force small
+        buf = io.BytesIO()
+        img.thumbnail((1024, 1024), Image.LANCZOS)
+        img.save(buf, format="JPEG", quality=30)
+        logger.info(f"Force-compressed image: {len(image_bytes)} -> {buf.tell()} bytes")
+        return buf.getvalue(), "image/jpeg"
+    except Exception as e:
+        logger.warning(f"Image compression failed: {e}, using original")
+        return image_bytes, content_type
+
+
 async def analyze_photo(
     image_bytes: bytes,
     pet_species: str,
@@ -330,6 +366,8 @@ async def analyze_photo(
     global _groq_vision_limited_until, last_provider
     settings = get_settings()
 
+    # Compress large images
+    image_bytes, content_type = _compress_image(image_bytes, content_type)
     b64_image = base64.b64encode(image_bytes).decode("utf-8")
     prompt = _photo_prompt(pet_species, complaint, language=language)
     logger.info(f"Photo prompt language={language!r}, prompt starts with: {prompt[:80]!r}")
