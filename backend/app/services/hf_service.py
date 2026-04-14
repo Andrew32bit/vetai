@@ -72,6 +72,25 @@ async def _claude_chat_fallback(
     return response.content[0].text
 
 
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+
+
+def _normalize_content_type(content_type: str) -> str:
+    """Normalize content type to one accepted by Claude Vision API."""
+    if content_type in ALLOWED_IMAGE_TYPES:
+        return content_type
+    # Map common variants
+    mapping = {
+        "image/jpg": "image/jpeg",
+        "image/heic": "image/jpeg",
+        "image/heif": "image/jpeg",
+        "image/bmp": "image/png",
+        "image/tiff": "image/jpeg",
+        "application/octet-stream": "image/jpeg",
+    }
+    return mapping.get(content_type, "image/jpeg")
+
+
 async def _claude_vision_fallback(
     b64_image: str,
     content_type: str,
@@ -79,6 +98,7 @@ async def _claude_vision_fallback(
     max_tokens: int = 1024,
 ) -> str:
     """Fallback to Claude Vision API when Groq vision is rate-limited."""
+    content_type = _normalize_content_type(content_type)
     settings = get_settings()
     client = _get_claude_client()
     response = await client.messages.create(
