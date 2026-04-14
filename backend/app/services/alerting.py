@@ -136,7 +136,8 @@ def send_new_user_alert(
             data=data,
             headers={"Content-Type": "application/json"},
         )
-        urllib.request.urlopen(req, timeout=5)
+        urllib.request.urlopen(req, timeout=15)
+        logger.info(f"New user alert sent: {first_name} ({username})")
     except Exception as e:
         logger.error(f"Failed to send new user alert: {e}")
 
