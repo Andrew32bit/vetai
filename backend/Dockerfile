@@ -9,6 +9,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ ./app/
 
-EXPOSE 10000
+RUN useradd -m -u 1000 user && chown -R user:user /app
+USER user
 
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-10000}
+EXPOSE 7860
+
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-7860}

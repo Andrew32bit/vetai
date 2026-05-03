@@ -24,10 +24,12 @@ app.add_middleware(
         "https://web.telegram.org",
         "https://andrew32bit.github.io",
         "https://salmon-hill-0a38f9b10.1.azurestaticapps.net",
+        "https://kombatdrew-vetai-backend.hf.space",
         "http://localhost:5173",
         "http://localhost:5174",
         settings.TELEGRAM_WEBAPP_URL,
     ],
+    allow_origin_regex=r"https://.*\.(pages\.dev|hf\.space)",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -55,6 +57,18 @@ async def startup():
     _register_webhook()
 
 
+def _public_base_url() -> str:
+    """Resolve public URL: BASE_URL env var, or HF Space subdomain, or empty."""
+    import os
+    if base := os.environ.get("BASE_URL"):
+        return base.rstrip("/")
+    space_id = os.environ.get("SPACE_ID")  # set by HF: e.g. "kombatDrew/vetai-backend"
+    if space_id:
+        owner, name = space_id.split("/", 1)
+        return f"https://{owner.lower()}-{name.lower()}.hf.space"
+    return ""
+
+
 def _register_webhook():
     """Register Telegram webhook on startup."""
     import urllib.request
@@ -65,7 +79,11 @@ def _register_webhook():
         _settings = get_settings()
         if not _settings.TELEGRAM_BOT_TOKEN:
             return
-        webhook_url = "https://vetai-backend.azurewebsites.net/webhook"
+        base = _public_base_url()
+        if not base:
+            _logger.warning("BASE_URL/SPACE_ID not set — skipping webhook registration")
+            return
+        webhook_url = f"{base}/webhook"
         data = _json.dumps({"url": webhook_url}).encode()
         req = urllib.request.Request(
             f"https://api.telegram.org/bot{_settings.TELEGRAM_BOT_TOKEN}/setWebhook",
@@ -73,21 +91,26 @@ def _register_webhook():
             headers={"Content-Type": "application/json"},
         )
         resp = urllib.request.urlopen(req, timeout=10)
-        _logger.info(f"Webhook registered: {resp.read().decode()}")
+        _logger.info(f"Webhook registered at {webhook_url}: {resp.read().decode()}")
     except Exception as e:
         _logger.error(f"Failed to register webhook: {e}")
 
 
 async def _keep_alive():
-    """Ping self every 10 min to prevent Render free tier from sleeping."""
+    """Ping self every 10 min to prevent free tier from sleeping."""
     import asyncio
     import urllib.request
     import logging
     logger = logging.getLogger(__name__)
+    base = _public_base_url()
+    if not base:
+        logger.info("BASE_URL/SPACE_ID not set — keep-alive disabled")
+        return
+    url = f"{base}/health"
     while True:
         await asyncio.sleep(600)  # 10 minutes
         try:
-            urllib.request.urlopen("https://vetai-backend.azurewebsites.net/health", timeout=10)
+            urllib.request.urlopen(url, timeout=10)
         except Exception as e:
             logger.debug(f"Keep-alive ping failed: {e}")
 

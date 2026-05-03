@@ -1,2 +1,9 @@
 *.env
 .env
+.venv/
+__pycache__/
+*.pyc
+.azure/
+.vite/
+backups/
+vetai.db
