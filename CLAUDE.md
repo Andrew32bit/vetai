@@ -19,14 +19,15 @@ Features: photo analysis (skin/eyes/ears + УЗИ/рентген/МРТ), lab re
 - **AI Vision:** Groq (Llama 4 Scout) → Claude Vision fallback при 429
 - **i18n:** Auto-detect from Telegram language_code (ru/en)
 
-## Hosting (Azure)
-- **Frontend:** Azure Static Web Apps (Free) — salmon-hill-0a38f9b10.1.azurestaticapps.net
-- **Backend:** Azure App Service F1 (Free) — vetai-backend.azurewebsites.net
-- **Database:** SQLite on App Service disk, backup every 5 min → Azure Cosmos DB (Free 25GB)
-- **Old (deprecated):** Render.com (vetai-backend-app.onrender.com), GitHub Pages
+## Hosting
+- **Backend:** Hugging Face Spaces (Free) — https://kombatdrew-vetai-backend.hf.space (Docker, порт 7860)
+- **Frontend:** GitHub Pages — https://andrew32bit.github.io/vetai/ (BASE_PATH=`/vetai/`, деплой через `.github/workflows/deploy-frontend.yml`)
+- **Database:** SQLite на диске HF Space (persistent storage)
+- **Telegram webhook:** `https://kombatdrew-vetai-backend.hf.space/webhook`
+- **Old (deprecated):** Azure App Service (vetai-backend.azurewebsites.net), Azure Static Web Apps, Render.com
 
 ## Dashboard Command
-When asked for stats/dashboard, fetch from `https://vetai-backend.azurewebsites.net/api/v1/users/admin/stats` (header: admin-key: vetai-admin-2026) and format as: Общее → По дням → Пользователи (with pets, source) → Последние обращения → Продвижение.
+When asked for stats/dashboard, fetch from `https://kombatdrew-vetai-backend.hf.space/api/v1/users/admin/stats` (header: admin-key: vetai-admin-2026) and format as: Общее → По дням → Пользователи (with pets, source) → Последние обращения → Продвижение.
 
 ## Commands
 
