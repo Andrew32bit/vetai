@@ -5,6 +5,7 @@ Collects symptoms → generates preliminary assessment → recommends clinic if 
 
 import json
 import logging
+import re
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 from typing import Optional
@@ -103,6 +104,27 @@ Urgency levels:
 IMPORTANT:
 - If symptoms indicate high/emergency — you MUST say so directly and strongly recommend a vet visit
 - ALL parts of the response, including [QUESTIONS], MUST be in English. Not a single word in another language."""
+
+
+def _detect_language(message: str, history: list, fallback: str) -> str:
+    """Detect chat language from user's recent messages.
+
+    Counts cyrillic vs latin letters across the new message and the last 3 user
+    turns. Cyrillic-dominant → ru, latin-dominant → en, otherwise fallback to the
+    client-provided language. Fixes the case where Telegram language_code says
+    'en' but the user actually writes in Russian.
+    """
+    samples = [message]
+    user_turns = [m for m in history if getattr(m, "role", None) == "user"]
+    samples.extend(m.content for m in user_turns[-3:])
+    blob = " ".join(s for s in samples if s)
+    cyr = len(re.findall(r'[а-яА-ЯёЁ]', blob))
+    lat = len(re.findall(r'[a-zA-Z]', blob))
+    if cyr >= 3 and cyr >= lat:
+        return "ru"
+    if lat >= 3 and lat > cyr * 2:
+        return "en"
+    return fallback
 
 
 def _filter_non_russian(text: str) -> str:
@@ -220,8 +242,12 @@ async def send_message(
                 "remaining": remaining,
             },
         )
-    # Select system prompt based on language
-    language = request.language or "ru"
+    # Detect language from the user's actual text — client-sent language_code
+    # is unreliable (e.g. EN-locale Telegram users writing in Russian).
+    client_language = request.language or "ru"
+    language = _detect_language(request.message, request.history, client_language)
+    if language != client_language:
+        logger.info(f"Language override: client={client_language} detected={language}")
     system_prompt = SYSTEM_PROMPT_EN if language == "en" else SYSTEM_PROMPT
 
     # Build conversation history for the model (only valid roles)
