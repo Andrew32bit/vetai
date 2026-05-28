@@ -265,6 +265,136 @@ def _has_cyrillic(text: str) -> bool:
     return bool(re.search(r'[а-яА-ЯёЁ]', text))
 
 
+def _has_latin(text: str) -> bool:
+    """Check if text contains Latin letters."""
+    return bool(re.search(r'[a-zA-Z]', text))
+
+
+# Known EN→RU term mappings for post-processing LLM output
+_EN_TO_RU_TERMS = {
+    "keratitis": "кератит",
+    "keatitis": "кератит",  # common LLM typo (missing 'r')
+    "keratoconjunctivitis": "кератоконъюнктивит",
+    "bilateral keratoconjunctivitis": "двусторонний кератоконъюнктивит",
+    "conjunctivitis": "конъюнктивит",
+    "blepharitis": "блефарит",
+    "dermatitis": "дерматит",
+    "dermatophytosis": "дерматофития",
+    "ringworm": "дерматофития (лишай)",
+    "pyoderma": "пиодермия",
+    "demodicosis": "демодекоз",
+    "otitis": "отит",
+    "rhinitis": "ринит",
+    "stomatitis": "стоматит",
+    "gingivitis": "гингивит",
+    "uveitis": "увеит",
+    "hot spot": "мокнущая экзема",
+    "not_animal": "не_животное",
+    "healthy": "здоров",
+}
+
+# Cyrillic letters that look identical to Latin (confusables).
+# Used for two cases:
+#   1. Fix latin embedded in cyrillic word: 'кoнъюнктивит' → 'конъюнктивит'
+#   2. Transliterate cyr→lat for dictionary lookup: 'кеatitis' → 'keatitis'
+_LAT_TO_CYR_CONFUSABLES = {
+    # lowercase
+    'a':'а', 'b':'в', 'c':'с', 'e':'е', 'h':'н', 'k':'к', 'm':'м',
+    'o':'о', 'p':'р', 't':'т', 'x':'х', 'y':'у',
+    # uppercase
+    'A':'А', 'B':'В', 'C':'С', 'E':'Е', 'H':'Н', 'K':'К', 'M':'М',
+    'O':'О', 'P':'Р', 'T':'Т', 'X':'Х', 'Y':'У',
+}
+_CYR_TO_LAT_CONFUSABLES = {v: k for k, v in _LAT_TO_CYR_CONFUSABLES.items()}
+
+
+def _count_scripts(text: str) -> tuple[int, int]:
+    """Return (cyrillic_letters_count, latin_letters_count)."""
+    cyr = len(re.findall(r'[а-яА-ЯёЁ]', text))
+    lat = len(re.findall(r'[a-zA-Z]', text))
+    return cyr, lat
+
+
+def _fix_confusables(text: str, target_script: str) -> str:
+    """Replace confusable letters to make word consistent in one script."""
+    if target_script == "cyr":
+        return ''.join(_LAT_TO_CYR_CONFUSABLES.get(c, c) for c in text)
+    else:  # lat
+        return ''.join(_CYR_TO_LAT_CONFUSABLES.get(c, c) for c in text)
+
+
+def _normalize_mixed_script(text: str, target_lang: str) -> str:
+    """Detect and fix mixed Cyrillic/Latin condition labels.
+
+    Real LLM broken outputs from prod:
+    - 'кеatitis'   (к-cyr + еatitis-lat, typo for keratitis without 'r')
+    - 'кoнъюнктивит' (o is latin inside cyrillic word)
+
+    Strategy (applied in order):
+    1. Pure script? return as-is.
+    2. target=ru and mostly-cyrillic (≥60% cyr letters) — fix confusables latin→cyr.
+    3. target=en and mostly-latin — fix confusables cyr→lat.
+    4. Still mixed → try dictionary lookup (transliterate cyr→lat or lat→cyr, substring match).
+    5. Give up — strip minority script.
+    """
+    if not text:
+        return text
+    cyr, lat = _count_scripts(text)
+    if cyr == 0 or lat == 0:
+        return text  # pure script — nothing to fix
+
+    original = text
+    total = cyr + lat
+
+    # Step 2/3: fix confusables if one script dominates
+    if target_lang == "ru" and cyr / total >= 0.5:
+        # Fix latin confusables embedded in cyrillic word (e.g. 'кoнъюнктивит')
+        # Only replace latin letters surrounded by cyrillic to avoid breaking 'not_animal'
+        def _replace_confusable(m):
+            c = m.group(0)
+            return _LAT_TO_CYR_CONFUSABLES.get(c, c)
+        fixed = re.sub(r'(?<=[а-яА-ЯёЁ])[a-zA-Z](?=[а-яА-ЯёЁ])|(?<=[а-яА-ЯёЁ])[a-zA-Z](?=[a-zA-Z][а-яА-ЯёЁ])', _replace_confusable, text)
+        if fixed != text:
+            logger.info(f"Fixed latin confusables in cyrillic word: '{text}' → '{fixed}'")
+            text = fixed
+            cyr, lat = _count_scripts(text)
+            if lat == 0:
+                return text
+    elif target_lang == "en" and lat / total >= 0.5:
+        fixed = re.sub(r'(?<=[a-zA-Z])[а-яА-ЯёЁ](?=[a-zA-Z])', lambda m: _CYR_TO_LAT_CONFUSABLES.get(m.group(0), m.group(0)), text)
+        if fixed != text:
+            logger.info(f"Fixed cyrillic confusables in latin word: '{text}' → '{fixed}'")
+            text = fixed
+            cyr, lat = _count_scripts(text)
+            if cyr == 0:
+                return text
+
+    # Step 4: transliterate cyr letters that look like latin, and try dictionary lookup
+    lower = text.lower()
+    translit_to_lat = ''.join(_CYR_TO_LAT_CONFUSABLES.get(c, c).lower() for c in lower)
+    # Keep only letters for substring comparison
+    translit_stripped = re.sub(r'[^a-z]', '', translit_to_lat)
+    for en, ru in _EN_TO_RU_TERMS.items():
+        en_stripped = re.sub(r'[^a-z]', '', en.lower())
+        if en_stripped and en_stripped in translit_stripped:
+            result = ru if target_lang == "ru" else en
+            logger.info(f"Normalized mixed-script '{original}' → '{result}' via dictionary")
+            return result
+
+    # Step 5: strip the minority script
+    if target_lang == "ru":
+        only_cyr = re.sub(r'[a-zA-Z]', '', text).strip(' -_.,')
+        if len(only_cyr) >= 3:
+            logger.warning(f"Stripped latin from mixed-script '{original}' → '{only_cyr}'")
+            return only_cyr
+    else:
+        only_lat = re.sub(r'[а-яА-ЯёЁ]', '', text).strip(' -_.,')
+        if len(only_lat) >= 3:
+            logger.warning(f"Stripped cyrillic from mixed-script '{original}' → '{only_lat}'")
+            return only_lat
+    return text
+
+
 async def _translate_result_to_en(result: dict) -> dict:
     """Translate Russian vision result fields to English using Claude."""
     try:
@@ -299,6 +429,9 @@ async def _parse_vision_result(raw_text: str, language: str = "ru") -> dict:
         if language == "en" and _has_cyrillic(parsed.get("condition", "") + parsed.get("description", "")):
             logger.info("EN requested but got Russian response, translating via Claude")
             return await _translate_result_to_en(parsed)
+        # Fix mixed-script labels (e.g. "кеatitis" — к-cyr + latin)
+        if "condition" in parsed and isinstance(parsed["condition"], str):
+            parsed["condition"] = _normalize_mixed_script(parsed["condition"], language)
         return parsed
     if language == "en":
         return {
@@ -436,6 +569,9 @@ async def interpret_lab_results_image(
     global _groq_vision_limited_until, last_provider
     settings = get_settings()
 
+    # Compress large images — phone photos of lab printouts often exceed
+    # Claude's 5MB request limit (413 request_too_large).
+    image_bytes, content_type = _compress_image(image_bytes, content_type)
     b64_image = base64.b64encode(image_bytes).decode("utf-8")
 
     if language == "en":
