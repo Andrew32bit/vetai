@@ -614,28 +614,40 @@ async def _run_broadcast(recipients: list, text: str, campaign: str | None):
     import time as _time
     import app.services.alerting as alerting_mod
 
-    sent = failed = 0
+    sent = failed = blocked = 0
     for telegram_id, lang in recipients:
-        try:
-            result = await asyncio.to_thread(
-                alerting_mod.send_user_message, telegram_id, text, lang or "ru"
-            )
-        except Exception:
-            result = False
+        # Up to 3 attempts with backoff — free-tier outbound can time out and
+        # Telegram may flood-limit bursts; retrying rescues most transient fails.
+        result = False
+        for attempt in range(3):
+            try:
+                result = await asyncio.to_thread(
+                    alerting_mod.send_user_message, telegram_id, text, lang or "ru"
+                )
+            except Exception:
+                result = False
+            if result is True or result is None:
+                break  # delivered, or user blocked the bot (don't retry)
+            await asyncio.sleep(2 * (attempt + 1))  # 2s, 4s backoff
+
         ok = result is True
         sent += 1 if ok else 0
-        failed += 0 if ok else 1
+        blocked += 1 if result is None else 0
+        failed += 0 if (ok or result is None) else 1
         try:
             async with async_session() as s:
                 s.add(AnalyticsEvent(
                     telegram_id=telegram_id,
                     event="notification_sent",
-                    props=_json.dumps({"campaign": campaign, "ok": ok}, ensure_ascii=False),
+                    props=_json.dumps(
+                        {"campaign": campaign, "ok": ok, "blocked": result is None},
+                        ensure_ascii=False,
+                    ),
                 ))
                 await s.commit()
         except Exception:
             pass
-        await asyncio.sleep(0.15)  # gentle pacing for Telegram
+        await asyncio.sleep(1.0)  # ~1 msg/s — Telegram-safe pacing
 
     alerting_mod._last_broadcast = _time.time()
     logging.getLogger(__name__).info(
@@ -685,6 +697,7 @@ async def admin_send_message(req: BroadcastRequest, admin_key: str = Header(...)
                 select(AnalyticsEvent.telegram_id).where(
                     AnalyticsEvent.event == "notification_sent",
                     AnalyticsEvent.props.like(f'%"campaign": "{req.campaign}"%'),
+                    AnalyticsEvent.props.like('%"ok": true%'),  # only skip DELIVERED
                 )
             )).scalars().all())
             before = len(rows)
