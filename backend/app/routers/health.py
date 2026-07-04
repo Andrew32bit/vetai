@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Header, HTTPException
 
+from app.config import verify_admin_key
+
 router = APIRouter()
 
 
@@ -10,7 +12,7 @@ async def health_check():
 
 @router.post("/admin/backup")
 async def trigger_backup(admin_key: str = Header(...)):
-    if admin_key != "vetai-admin-2026":
+    if not verify_admin_key(admin_key):
         raise HTTPException(status_code=403, detail="Forbidden")
     from app.services.db_backup import backup_db
     await backup_db()

@@ -63,6 +63,13 @@ async def increment(telegram_id: int, feature: str, provider: str | None = None)
         session.add(log)
         await session.commit()
 
+        # Update daily-usage streak (retention loop). Best-effort.
+        try:
+            from app.services.growth import update_streak
+            await update_streak(telegram_id)
+        except Exception:
+            pass
+
         # Check daily traffic thresholds
         today = date.today().isoformat()
         total_today = (await session.execute(

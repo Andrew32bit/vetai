@@ -9,6 +9,7 @@ from typing import Optional
 from sqlalchemy import select, func, text
 from sqlalchemy.orm import selectinload
 
+from app.config import verify_admin_key
 from app.models.database import async_session, User, Pet, UsageLog, Diagnosis, ChatSession, ErrorLog, ChatFeedback
 from app.services.usage_limiter import get_usage_info
 from app.services.alerting import send_new_user_alert, send_welcome_message, send_user_message
@@ -32,6 +33,8 @@ class AuthRequest(BaseModel):
     language_code: Optional[str] = "ru"
     is_premium: Optional[bool] = False
     platform: Optional[str] = None
+    ref: Optional[int] = None            # referrer telegram_id (from invite deep-link)
+    start_param: Optional[str] = None    # raw Telegram start_param, e.g. "ref_12345"
 
 
 class RegisterRequest(BaseModel):
@@ -122,9 +125,20 @@ async def auth_user(data: AuthRequest):
             except Exception:
                 pass
 
+            # Referral: credit the inviter (viral loop). Best-effort, never blocks signup.
+            referred = False
+            try:
+                from app.services.growth import parse_referrer, apply_referral
+                referrer_tid = parse_referrer(data.ref, data.start_param)
+                if referrer_tid:
+                    referred = await apply_referral(data.telegram_id, referrer_tid)
+            except Exception:
+                pass
+
             return {
                 "is_new": True,
                 "user_id": new_user.id,
+                "referred": referred,
             }
 
 
@@ -203,7 +217,20 @@ async def get_current_user(x_telegram_id: int = Header(...)):
             "pets": pets_list,
             "usage_today": usage["usage_today"],
             "usage_limit": usage["usage_limit"],
+            "streak": user.streak_count or 0,
+            "referral_count": user.referral_count or 0,
         }
+
+
+@router.get("/referral-info", response_model=dict)
+async def referral_info(x_telegram_id: int = Header(...)):
+    """Invite stats for the referral UI: count of invites and current daily limit."""
+    from app.services.growth import get_referral_stats
+    stats = await get_referral_stats(x_telegram_id)
+    return {
+        "telegram_id": x_telegram_id,
+        **stats,
+    }
 
 
 @router.post("/subscribe")
@@ -222,7 +249,7 @@ async def subscribe(tier: str, x_telegram_id: int = Header(...)):
 @router.post("/admin/set-limit")
 async def set_user_limit(telegram_id: int, daily_limit: int, admin_key: str = Header(...)):
     """Set a custom daily limit override for a user."""
-    if admin_key != "vetai-admin-2026":
+    if not verify_admin_key(admin_key):
         raise HTTPException(status_code=403, detail="Forbidden")
 
     async with async_session() as session:
@@ -242,7 +269,7 @@ async def set_user_limit(telegram_id: int, daily_limit: int, admin_key: str = He
 @router.get("/admin/users")
 async def list_users(admin_key: str = Header(...)):
     """List all users with stats (admin only)."""
-    if admin_key != "vetai-admin-2026":
+    if not verify_admin_key(admin_key):
         raise HTTPException(status_code=403, detail="Forbidden")
 
     today = date.today().isoformat()
@@ -312,7 +339,7 @@ async def submit_feedback(
 @router.get("/admin/feedback")
 async def list_feedback(admin_key: str = Header(...)):
     """List all feedback."""
-    if admin_key != "vetai-admin-2026":
+    if not verify_admin_key(admin_key):
         raise HTTPException(403, "Forbidden")
 
     from app.models.database import Feedback
@@ -341,7 +368,7 @@ async def list_feedback(admin_key: str = Header(...)):
 @router.get("/admin/stats")
 async def get_stats(admin_key: str = Header(...)):
     """Сводная аналитика: пользователи, запросы, провайдеры, фичи."""
-    if admin_key != "vetai-admin-2026":
+    if not verify_admin_key(admin_key):
         raise HTTPException(403, "Forbidden")
 
     today = date.today().isoformat()
@@ -433,7 +460,7 @@ async def get_stats(admin_key: str = Header(...)):
 @router.get("/admin/chats")
 async def get_admin_chats(admin_key: str = Header(...), telegram_id: int = None):
     """Просмотр чат-сессий (опционально по telegram_id)."""
-    if admin_key != "vetai-admin-2026":
+    if not verify_admin_key(admin_key):
         raise HTTPException(403, "Forbidden")
 
     import json
@@ -470,7 +497,7 @@ async def get_admin_chats(admin_key: str = Header(...), telegram_id: int = None)
 @router.get("/admin/errors")
 async def get_admin_errors(admin_key: str = Header(...), limit: int = 50):
     """Просмотр последних ошибок из БД."""
-    if admin_key != "vetai-admin-2026":
+    if not verify_admin_key(admin_key):
         raise HTTPException(403, "Forbidden")
 
     async with async_session() as session:
@@ -499,7 +526,7 @@ async def get_admin_errors(admin_key: str = Header(...), limit: int = 50):
 @router.delete("/admin/user/{telegram_id}")
 async def delete_user(telegram_id: int, admin_key: str = Header(...)):
     """Удалить пользователя и все его данные."""
-    if admin_key != "vetai-admin-2026":
+    if not verify_admin_key(admin_key):
         raise HTTPException(403, "Forbidden")
 
     async with async_session() as session:
@@ -525,7 +552,7 @@ async def delete_user(telegram_id: int, admin_key: str = Header(...)):
 @router.get("/admin/chat-feedback")
 async def get_admin_feedback(admin_key: str = Header(...), limit: int = 50):
     """Просмотр лайков/дизлайков чата."""
-    if admin_key != "vetai-admin-2026":
+    if not verify_admin_key(admin_key):
         raise HTTPException(403, "Forbidden")
 
     async with async_session() as session:
@@ -576,7 +603,7 @@ class BroadcastRequest(BaseModel):
 @router.post("/admin/send-message")
 async def admin_send_message(req: BroadcastRequest, admin_key: str = Header(...)):
     """Send a message to users via Telegram bot. Target: 'all', 'active', or specific telegram_id."""
-    if admin_key != "vetai-admin-2026":
+    if not verify_admin_key(admin_key):
         raise HTTPException(403, "Forbidden")
 
     import time

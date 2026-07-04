@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
-import { Camera, Upload, Loader2 } from "lucide-react";
+import { Camera, Upload, Loader2, Share2 } from "lucide-react";
 import { t, getLang } from "../i18n";
+import { track, shareResult } from "../analytics";
 import StarRating from "../components/StarRating";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -36,6 +37,7 @@ export default function PhotoUploadPage() {
     if (!photo) return;
     setLoading(true);
     setLimitError(null);
+    track("ai_start", { feature: "photo" });
     try {
       const telegramId = localStorage.getItem("vetai_telegram_id") || "12345";
       const user = JSON.parse(localStorage.getItem("vetai_user") || "{}");
@@ -62,15 +64,18 @@ export default function PhotoUploadPage() {
 
       if (res.status === 429) {
         setLimitError(t("photoLimitExhausted"));
+        track("ai_failure", { feature: "photo", reason: "limit" });
         return;
       }
 
       const data = await res.json();
       setResult(data);
+      track("ai_success", { feature: "photo", condition: data.condition, severity: data.severity });
     } catch (err) {
       console.error(err);
       const isServerDown = err.message?.includes("Failed to fetch") || err.message?.includes("NetworkError");
       setLimitError(isServerDown ? t("serverOverloaded") : t("chatError"));
+      track("ai_failure", { feature: "photo", reason: isServerDown ? "server_down" : "error" });
     } finally {
       setLoading(false);
     }
@@ -197,6 +202,12 @@ export default function PhotoUploadPage() {
             {t("photoConfidence")}: {Math.round(result.confidence * 100)}%
           </div>
           {result.diagnosis_id && <StarRating diagnosisId={result.diagnosis_id} />}
+          <button
+            onClick={() => shareResult(result.condition)}
+            className="mt-3 w-full flex items-center justify-center gap-2 text-sm font-medium text-tg-blue border border-tg-blue/30 rounded-xl py-2.5 active:opacity-70"
+          >
+            <Share2 size={16} /> {t("shareResult")}
+          </button>
         </div>
       )}
     </div>

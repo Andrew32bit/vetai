@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PawPrint, Cat, Dog } from "lucide-react";
 import { t } from "../i18n";
+import { track } from "../analytics";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const steps = ["welcome", "pet_type", "pet_details", "plan"];
 
 export default function OnboardingPage({ onComplete }) {
   const [step, setStep] = useState(0);
+  useEffect(() => { track("onboarding_start"); }, []);
   const [petType, setPetType] = useState(null); // "cat" | "dog"
   const [petName, setPetName] = useState("");
   const [breed, setBreed] = useState("");
@@ -133,6 +135,7 @@ export default function OnboardingPage({ onComplete }) {
               } catch (err) {
                 console.error("Register error:", err);
               }
+              track("onboarding_complete", { species: petType, has_breed: !!breed, has_city: !!city });
               onComplete({ petType, petName, breed, city, plan: "beta" });
             }}
             className="w-full bg-tg-blue text-white font-semibold py-3 rounded-xl"

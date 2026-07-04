@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, Loader2, MapPin, Trash2, ThumbsUp, ThumbsDown, MoreVertical } from "lucide-react";
 import { t, getLang } from "../i18n";
+import { track } from "../analytics";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -69,6 +70,7 @@ export default function ChatPage() {
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setLoading(true);
+    track("ai_start", { feature: "chat" });
 
     try {
       const user = JSON.parse(localStorage.getItem("vetai_user") || "{}");
@@ -97,6 +99,7 @@ export default function ChatPage() {
           ...prev,
           { role: "assistant", content: t("chatLimitExhausted") },
         ]);
+        track("ai_failure", { feature: "chat", reason: "limit" });
         return;
       }
 
@@ -104,6 +107,7 @@ export default function ChatPage() {
 
       // Add assistant reply
       setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
+      track("ai_success", { feature: "chat", urgency: data.urgency });
 
       // If clinic recommendation exists, add it as a separate message
       if (data.clinic_recommendation) {
@@ -118,6 +122,7 @@ export default function ChatPage() {
         ...prev,
         { role: "assistant", content: isServerDown ? t("serverOverloaded") : t("chatError") },
       ]);
+      track("ai_failure", { feature: "chat", reason: isServerDown ? "server_down" : "error" });
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
-import { FileText, Upload, Loader2 } from "lucide-react";
+import { FileText, Upload, Loader2, Share2 } from "lucide-react";
 import { t, getLang } from "../i18n";
+import { track, shareResult } from "../analytics";
 import StarRating from "../components/StarRating";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -22,6 +23,7 @@ export default function LabResultsPage() {
     if (!file) return;
     setLoading(true);
     setLimitError(null);
+    track("ai_start", { feature: "lab" });
     try {
       const telegramId = localStorage.getItem("vetai_telegram_id") || "12345";
       const language = getLang();
@@ -37,15 +39,18 @@ export default function LabResultsPage() {
 
       if (res.status === 429) {
         setLimitError(t("labLimitExhausted"));
+        track("ai_failure", { feature: "lab", reason: "limit" });
         return;
       }
 
       const data = await res.json();
       setResult(data);
+      track("ai_success", { feature: "lab", has_anomalies: !!(data.anomalies?.length) });
     } catch (err) {
       console.error(err);
       const isServerDown = err.message?.includes("Failed to fetch") || err.message?.includes("NetworkError");
       setLimitError(isServerDown ? t("serverOverloaded") : t("chatError"));
+      track("ai_failure", { feature: "lab", reason: isServerDown ? "server_down" : "error" });
     } finally {
       setLoading(false);
     }
@@ -121,6 +126,12 @@ export default function LabResultsPage() {
             {t("labDisclaimer")}
           </div>
           {result.diagnosis_id && <StarRating diagnosisId={result.diagnosis_id} />}
+          <button
+            onClick={() => shareResult(result.diagnosis || null)}
+            className="w-full flex items-center justify-center gap-2 text-sm font-medium text-tg-blue border border-tg-blue/30 rounded-xl py-2.5 active:opacity-70"
+          >
+            <Share2 size={16} /> {t("shareResult")}
+          </button>
         </div>
       )}
     </div>

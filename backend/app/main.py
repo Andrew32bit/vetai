@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import diagnosis, chat, user, health, webhook
+from app.routers import diagnosis, chat, user, health, webhook, analytics
 
 settings = get_settings()
 
@@ -40,6 +40,7 @@ app.include_router(health.router, tags=["health"])
 app.include_router(user.router, prefix="/api/v1/users", tags=["users"])
 app.include_router(diagnosis.router, prefix="/api/v1/diagnosis", tags=["diagnosis"])
 app.include_router(chat.router, prefix="/api/v1/chat", tags=["chat"])
+app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["analytics"])
 app.include_router(webhook.router, tags=["webhook"])
 
 
@@ -54,6 +55,7 @@ async def startup():
     await init_db()
     asyncio.create_task(periodic_backup())
     asyncio.create_task(_keep_alive())
+    asyncio.create_task(_reminder_loop())
     _register_webhook()
 
 
@@ -113,6 +115,60 @@ async def _keep_alive():
             urllib.request.urlopen(url, timeout=10)
         except Exception as e:
             logger.debug(f"Keep-alive ping failed: {e}")
+
+
+async def _reminder_loop():
+    """Re-engage users who registered/were active but went quiet (retention loop).
+
+    Sends at most one reminder per user per REMINDER_INTERVAL. Gated behind the
+    REMINDERS_ENABLED env flag (default off) so deploying the capability never
+    spams real users until it's explicitly turned on. Sends run off the event
+    loop via a thread to avoid blocking the single Uvicorn worker.
+    """
+    import os
+    import asyncio
+    import logging
+    logger = logging.getLogger(__name__)
+
+    if os.environ.get("REMINDERS_ENABLED", "").lower() not in ("1", "true", "yes"):
+        logger.info("Reminder loop disabled (set REMINDERS_ENABLED=1 to enable)")
+        return
+
+    from datetime import datetime, timedelta
+    from sqlalchemy import select, or_
+    from app.models.database import async_session, User
+    from app.services.alerting import send_reminder_message
+
+    BATCH = 40                      # cap sends per cycle (Telegram-friendly)
+    INACTIVE_AFTER = timedelta(hours=24)
+    REMINDER_COOLDOWN = timedelta(hours=72)
+
+    while True:
+        await asyncio.sleep(6 * 3600)  # every 6 hours
+        try:
+            now = datetime.utcnow()
+            async with async_session() as session:
+                rows = (await session.execute(
+                    select(User).where(
+                        User.last_login < now - INACTIVE_AFTER,
+                        or_(User.last_reminder_at.is_(None),
+                            User.last_reminder_at < now - REMINDER_COOLDOWN),
+                    ).limit(BATCH)
+                )).scalars().all()
+
+                for user in rows:
+                    lang = user.language_code or "ru"
+                    result = await asyncio.to_thread(
+                        send_reminder_message, user.telegram_id, lang
+                    )
+                    if result is not None:  # None == user blocked the bot
+                        user.last_reminder_at = now
+                    await asyncio.sleep(0.2)  # gentle pacing
+                await session.commit()
+                if rows:
+                    logger.info(f"Reminder loop: attempted {len(rows)} re-engagement messages")
+        except Exception as e:
+            logger.error(f"Reminder loop error: {e}")
 
 
 @app.on_event("shutdown")

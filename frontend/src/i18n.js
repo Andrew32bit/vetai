@@ -28,6 +28,16 @@ const translations = {
     feedbackCancel: "Отмена",
     feedbackThanks: "Спасибо за отзыв!",
 
+    // Growth: streak / invite / trust / share
+    streakDaysLabel: "дней подряд",
+    streakStart: "Начните серию — проверьте питомца сегодня 🔥",
+    inviteTitle: "Пригласите друга",
+    inviteDesc: "За каждого друга +5 запросов в день. Для вас и друга — бесплатно.",
+    inviteButton: "Пригласить друга",
+    inviteCountLabel: "Уже приглашено:",
+    trustCheckedSuffix: "проверок здоровья питомцев",
+    shareResult: "Поделиться результатом",
+
     // ChatPage
     chatTitle: "Чат с AI-ветеринаром",
     chatClear: "Очистить",
@@ -146,6 +156,16 @@ const translations = {
     feedbackSend: "Send",
     feedbackCancel: "Cancel",
     feedbackThanks: "Thank you for your feedback!",
+
+    // Growth: streak / invite / trust / share
+    streakDaysLabel: "day streak",
+    streakStart: "Start a streak — check your pet today 🔥",
+    inviteTitle: "Invite a friend",
+    inviteDesc: "Get +5 daily requests for every friend. Free for you and them.",
+    inviteButton: "Invite a friend",
+    inviteCountLabel: "Invited so far:",
+    trustCheckedSuffix: "pet health checks",
+    shareResult: "Share result",
 
     // ChatPage
     chatTitle: "AI Vet Chat",

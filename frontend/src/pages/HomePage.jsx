@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Camera, FileText, MessageCircle } from "lucide-react";
+import { Camera, FileText, MessageCircle, Gift, Flame, ShieldCheck } from "lucide-react";
 import { t } from "../i18n";
+import { track, shareInvite } from "../analytics";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -10,6 +11,9 @@ export default function HomePage() {
   const user = JSON.parse(localStorage.getItem("vetai_user") || "{}");
   const [usageToday, setUsageToday] = useState(0);
   const [usageLimit, setUsageLimit] = useState(3);
+  const [streak, setStreak] = useState(0);
+  const [referralCount, setReferralCount] = useState(0);
+  const [totalChecks, setTotalChecks] = useState(0);
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackSent, setFeedbackSent] = useState(false);
@@ -39,8 +43,8 @@ export default function HomePage() {
   ];
 
   useEffect(() => {
+    const telegramId = localStorage.getItem("vetai_telegram_id") || "12345";
     const fetchUsage = async () => {
-      const telegramId = localStorage.getItem("vetai_telegram_id") || "12345";
       try {
         const res = await fetch(`${API_URL}/api/v1/users/me`, {
           headers: { "x-telegram-id": telegramId },
@@ -49,30 +53,57 @@ export default function HomePage() {
           const data = await res.json();
           setUsageToday(data.usage_today || 0);
           if (data.usage_limit) setUsageLimit(data.usage_limit);
+          setStreak(data.streak || 0);
+          setReferralCount(data.referral_count || 0);
         }
       } catch (err) {
         console.error("Failed to fetch usage:", err);
       }
     };
+    const fetchTrust = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/v1/analytics/public-stats`);
+        if (res.ok) {
+          const data = await res.json();
+          setTotalChecks(data.checks || 0);
+        }
+      } catch {}
+    };
     fetchUsage();
+    fetchTrust();
   }, []);
 
   const remaining = Math.max(0, usageLimit - usageToday);
 
   return (
     <div className="px-4 py-3">
-      {/* Greeting */}
-      <div className="mb-3">
-        <h1 className="text-2xl font-bold text-gray-900">
-          {t("greeting")}{user.petName || (user.pets && user.pets[0]?.name) ? `, ${user.petName || user.pets[0]?.name}` : ""}! 🐾
-        </h1>
-        <p className="text-gray-500 mt-1">{t("healthQuestion")}</p>
+      {/* Greeting + streak */}
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {t("greeting")}{user.petName || (user.pets && user.pets[0]?.name) ? `, ${user.petName || user.pets[0]?.name}` : ""}! 🐾
+          </h1>
+          <p className="text-gray-500 mt-1">{t("healthQuestion")}</p>
+        </div>
+        {streak > 0 && (
+          <div className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-orange-50 border border-orange-200 text-orange-600 text-sm font-semibold">
+            <Flame size={16} /> {streak} <span className="text-xs font-normal">{t("streakDaysLabel")}</span>
+          </div>
+        )}
       </div>
 
       {/* Beta banner with remaining requests */}
       <div className="mb-3 px-3 py-1.5 rounded-xl bg-green-50 border border-green-200 text-center text-sm text-green-700">
         {t("betaBanner")} {usageToday}/{usageLimit}
       </div>
+
+      {/* Trust signal — social proof */}
+      {totalChecks > 0 && (
+        <div className="mb-3 flex items-center justify-center gap-1.5 text-xs text-gray-500">
+          <ShieldCheck size={14} className="text-green-500" />
+          {totalChecks.toLocaleString("ru-RU")} {t("trustCheckedSuffix")}
+        </div>
+      )}
 
       {/* Action cards */}
       <div className="space-y-2">
@@ -105,6 +136,26 @@ export default function HomePage() {
         <div className="text-sm text-gray-600">
           {t("dailyTipText")}
         </div>
+      </div>
+
+      {/* Invite friends — viral loop */}
+      <div className="mt-3 p-4 rounded-2xl bg-gradient-to-br from-violet-50 to-blue-50 border border-violet-100">
+        <div className="flex items-center gap-2 mb-1">
+          <Gift size={18} className="text-violet-600" />
+          <span className="font-semibold text-gray-900">{t("inviteTitle")}</span>
+        </div>
+        <p className="text-sm text-gray-600 mb-3">{t("inviteDesc")}</p>
+        <button
+          onClick={() => shareInvite()}
+          className="w-full bg-violet-600 text-white text-sm font-semibold py-2.5 rounded-xl active:opacity-80"
+        >
+          {t("inviteButton")}
+        </button>
+        {referralCount > 0 && (
+          <div className="mt-2 text-center text-xs text-violet-700">
+            {t("inviteCountLabel")} {referralCount}
+          </div>
+        )}
       </div>
 
       {/* Feedback */}
@@ -160,7 +211,7 @@ export default function HomePage() {
           <div className="mt-2 text-center text-xs text-green-600">{t("feedbackThanks")}</div>
         )}
       </div>
-      <div className="text-center text-[9px] text-gray-300 mt-2">v1.3.1</div>
+      <div className="text-center text-[9px] text-gray-300 mt-2">v1.4.0</div>
     </div>
   );
 }

@@ -48,6 +48,28 @@ async def init_db():
             await conn.execute(text("ALTER TABLE users ADD COLUMN reminder_sent BOOLEAN DEFAULT 0"))
         except Exception:
             pass
+        # Migrate: retention + referral columns on users
+        for _stmt in (
+            "ALTER TABLE users ADD COLUMN last_reminder_at DATETIME",
+            "ALTER TABLE users ADD COLUMN streak_count INTEGER DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN last_active_date VARCHAR(10)",
+            "ALTER TABLE users ADD COLUMN referred_by INTEGER",
+            "ALTER TABLE users ADD COLUMN referral_count INTEGER DEFAULT 0",
+        ):
+            try:
+                await conn.execute(text(_stmt))
+            except Exception:
+                pass  # Column already exists
+        # Index for analytics/funnel queries
+        for _idx in (
+            "CREATE INDEX IF NOT EXISTS ix_usage_log_used_at ON usage_log(used_at)",
+            "CREATE INDEX IF NOT EXISTS ix_analytics_event_created_at ON analytics_event(created_at)",
+            "CREATE INDEX IF NOT EXISTS ix_analytics_event_telegram_id ON analytics_event(telegram_id)",
+        ):
+            try:
+                await conn.execute(text(_idx))
+            except Exception:
+                pass
 
 
 async def get_session():
@@ -74,6 +96,13 @@ class User(Base):
     subscription_expires = Column(DateTime, nullable=True)
     daily_limit_override = Column(Integer, nullable=True)  # if set, overrides default daily limit
     reminder_sent = Column(Boolean, default=False)
+    last_reminder_at = Column(DateTime, nullable=True)  # last re-engagement reminder sent
+    # Retention: daily-usage streak
+    streak_count = Column(Integer, default=0)
+    last_active_date = Column(String(10), nullable=True)  # ISO date of last usage
+    # Referral / viral loop
+    referred_by = Column(Integer, nullable=True)  # telegram_id of the referrer
+    referral_count = Column(Integer, default=0)  # how many users this user invited
     created_at = Column(DateTime, default=datetime.utcnow)
 
     pets = relationship("Pet", back_populates="owner")
@@ -167,4 +196,26 @@ class ErrorLog(Base):
     feature = Column(String(20), nullable=True)  # "chat" | "photo" | "lab"
     message = Column(Text, nullable=False)
     telegram_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class AnalyticsEvent(Base):
+    """Lightweight product-analytics events (funnel, activation, retention)."""
+    __tablename__ = "analytics_event"
+
+    id = Column(Integer, primary_key=True)
+    telegram_id = Column(Integer, nullable=True, index=True)
+    event = Column(String(50), nullable=False)  # app_open | onboarding_start | onboarding_complete | ai_start | ai_success | ai_failure | invite_click | share_click | referral_landed | paywall_view | ...
+    props = Column(Text, nullable=True)  # JSON string with extra context (feature, urgency, provider, session_id)
+    session_id = Column(String(40), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Referral(Base):
+    """Audit trail of successful referrals (one row per invited user)."""
+    __tablename__ = "referral"
+
+    id = Column(Integer, primary_key=True)
+    referrer_telegram_id = Column(Integer, nullable=False, index=True)
+    invitee_telegram_id = Column(Integer, nullable=False, unique=True)
     created_at = Column(DateTime, default=datetime.utcnow)

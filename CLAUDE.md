@@ -7,6 +7,12 @@ Telegram Mini App for AI-powered pet health diagnosis (Russian + English markets
 Features: photo analysis (skin/eyes/ears + УЗИ/рентген/МРТ), lab results OCR, symptom chat (LLM).
 Ответ агента должен быть всегда на русском языке.
 
+## Knowledge Base (Obsidian)
+Мозги проекта (стратегия, сессии, контент-план, архитектура, статус) лежат в Obsidian:
+- **Vault:** `/Users/andrewk/Documents/Obsidian Vault`
+- **Проектная папка:** `projects/VetAI/` (стратегия продвижения, статус реализации, стек, архитектура, сессии, контент-план канала, обзор) + `projects/VetAI/Pro/` (про-версия)
+- Перед стратегическими/продуктовыми решениями или вопросами «что планировали / в каком статусе» — сначала смотри сюда, потом в код. Используй skill `obsidian:obsidian-cli` / `obsidian:obsidian-markdown` для чтения и правок.
+
 ## Telegram Bot
 - **Bot:** @vetai_app_bot (ID: 8517858349)
 - **Mini App:** Telegram Mini App через @vetai_app_bot
@@ -91,14 +97,17 @@ JSON columns for flexible data: `result_json`, `messages_json`.
 - Admin stats endpoint (/api/v1/users/admin/stats)
 - DB operations (user auth, diagnosis save, usage logging)
 - Все метки на русском (не_животное, здоров, низкая/средняя/высокая/экстренная)
+- **Admin key вынесен в env** `ADMIN_KEY` (secrets.compare_digest, fail-closed) — не хардкод
+- **Product-аналитика** — `POST /api/v1/analytics/events` (app_open, onboarding, ai_start/success/failure, invite/share, referral_landed), admin-воронка `GET /api/v1/analytics/funnel` (DAU/WAU/активация/ретеншн/рефералы), публичный `GET /api/v1/analytics/public-stats` (trust-бейдж)
+- **Реферальная механика** — deep-link `?startapp=ref_<id>`, награда +5 запросов/день рефереру (кап 50), идемпотентно; инвайт-карточка на Home + шаринг результата
+- **Ретеншн** — daily-usage streak (бейдж на Home) + фоновая задача напоминаний (`REMINDERS_ENABLED`, по умолчанию off)
 
 ### Не реализовано
 - S3 file upload (фото хранятся только в памяти)
-- Telegram initData auth validation
+- Telegram initData auth validation (HMAC-подпись) — **критично**, см. [[Due Diligence 2026-07]]
 - Payment integration (YooKassa / Telegram Stars)
 - Subscription limit enforcement (все на beta tier)
-- Реферальная механика
-- Push-уведомления
+- Push-уведомления (кроме re-engagement reminders)
 
 ## Important Notes
 - **Language:** All UI text and AI responses must be in Russian

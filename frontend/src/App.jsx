@@ -10,6 +10,7 @@ import ChatPage from "./pages/ChatPage";
 import HistoryPage from "./pages/HistoryPage";
 import BottomNav from "./components/BottomNav";
 import { t } from "./i18n";
+import { track, getReferrerId, getStartParam } from "./analytics";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -33,6 +34,13 @@ function AppContent() {
     // Init Telegram Mini App
     WebApp.ready();
     WebApp.expand();
+
+    // Analytics: app opened (session start). If launched via a referral link,
+    // record that this session landed from an invite.
+    track("app_open", { platform: detectPlatform() });
+    if (getReferrerId()) {
+      track("referral_landed", { start_param: getStartParam() });
+    }
 
     // Detect language from Telegram
     try {
@@ -87,6 +95,8 @@ function AppContent() {
             language_code: tgUser.language_code || "ru",
             is_premium: tgUser.is_premium || false,
             platform: detectPlatform(),
+            ref: getReferrerId(),
+            start_param: getStartParam(),
           }),
         });
         clearTimeout(timeout);
