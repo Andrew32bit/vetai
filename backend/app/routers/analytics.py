@@ -154,6 +154,16 @@ async def funnel(admin_key: str = Header(...), days: int = 7):
         )).all()
         top_referrers = [{"telegram_id": tid, "invites": c} for tid, c in top_ref_rows]
 
+        # Acquisition breakdown of NEW users in the window (organic vs referral vs channel)
+        acq_rows = (await session.execute(
+            select(User.source, func.count(User.id))
+            .where(func.date(User.created_at) >= window_start)
+            .group_by(User.source)
+        )).all()
+        acquisition = {}
+        for src, cnt in acq_rows:
+            acquisition[src or "organic"] = acquisition.get(src or "organic", 0) + cnt
+
         # Broadcast delivery breakdown (from notification_sent events)
         delivered = (await session.execute(
             select(func.count(AnalyticsEvent.id)).where(
@@ -186,6 +196,7 @@ async def funnel(admin_key: str = Header(...), days: int = 7):
             "total": referrals_total,
             "top_referrers": top_referrers,
         },
+        "acquisition": acquisition,
         "broadcast": {
             "delivered": delivered,
             "failed": notif_failed,

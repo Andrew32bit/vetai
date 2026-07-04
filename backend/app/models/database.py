@@ -55,6 +55,7 @@ async def init_db():
             "ALTER TABLE users ADD COLUMN last_active_date VARCHAR(10)",
             "ALTER TABLE users ADD COLUMN referred_by INTEGER",
             "ALTER TABLE users ADD COLUMN referral_count INTEGER DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN source VARCHAR(40)",
         ):
             try:
                 await conn.execute(text(_stmt))
@@ -103,6 +104,7 @@ class User(Base):
     # Referral / viral loop
     referred_by = Column(Integer, nullable=True)  # telegram_id of the referrer
     referral_count = Column(Integer, default=0)  # how many users this user invited
+    source = Column(String(40), nullable=True)  # acquisition: organic | referral | src_<channel>
     created_at = Column(DateTime, default=datetime.utcnow)
 
     pets = relationship("Pet", back_populates="owner")

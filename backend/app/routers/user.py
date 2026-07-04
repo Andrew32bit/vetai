@@ -93,7 +93,20 @@ async def auth_user(data: AuthRequest):
                 "usage_limit": usage["usage_limit"],
             }
         else:
-            # New user
+            # New user — derive acquisition source from the launch deep-link.
+            #   ref_<id>  → "referral"   (viral invite)
+            #   src_<tag> → that channel (e.g. src_pikabu, src_tgchat) — use tagged links
+            #   (nothing) → "organic"
+            _sp = (data.start_param or "").strip().lower()
+            if data.ref or _sp.startswith("ref"):
+                source = "referral"
+            elif _sp.startswith("src_"):
+                source = _sp[:40]
+            elif _sp:
+                source = ("src_" + _sp)[:40]
+            else:
+                source = "organic"
+
             new_user = User(
                 telegram_id=data.telegram_id,
                 first_name=data.first_name,
@@ -105,6 +118,7 @@ async def auth_user(data: AuthRequest):
                 login_count=1,
                 last_login=datetime.utcnow(),
                 subscription_tier="beta",
+                source=source,
             )
             session.add(new_user)
             await session.commit()
