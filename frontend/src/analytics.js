@@ -9,6 +9,7 @@
  */
 
 import WebApp from "@twa-dev/sdk";
+import { t } from "./i18n";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const BOT_USERNAME = "vetai_app_bot";
@@ -79,9 +80,7 @@ export function inviteLink() {
  */
 export function shareInvite(text) {
   const link = inviteLink();
-  const shareText =
-    text ||
-    "🐾 Бесплатный AI-ветеринар в Telegram: проверь здоровье питомца по фото, анализам или симптомам за 30 секунд";
+  const shareText = text || t("inviteShareText");
   const url = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(shareText)}`;
   track("invite_click");
   try {
@@ -109,9 +108,8 @@ export function shareInvite(text) {
  */
 export function shareResult(summary) {
   const link = inviteLink();
-  const text = summary
-    ? `${summary}\n\nПроверено в VetAI — бесплатном AI-ветеринаре 🐾`
-    : "Проверил питомца в VetAI — бесплатном AI-ветеринаре 🐾";
+  const suffix = t("shareResultSuffix");
+  const text = summary ? `${summary}\n\n${suffix}` : suffix;
   const url = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
   track("share_result_click");
   try {

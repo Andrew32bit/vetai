@@ -154,6 +154,20 @@ async def funnel(admin_key: str = Header(...), days: int = 7):
         )).all()
         top_referrers = [{"telegram_id": tid, "invites": c} for tid, c in top_ref_rows]
 
+        # Broadcast delivery breakdown (from notification_sent events)
+        delivered = (await session.execute(
+            select(func.count(AnalyticsEvent.id)).where(
+                AnalyticsEvent.event == "notification_sent",
+                AnalyticsEvent.props.like('%"ok": true%'),
+            )
+        )).scalar() or 0
+        notif_failed = (await session.execute(
+            select(func.count(AnalyticsEvent.id)).where(
+                AnalyticsEvent.event == "notification_sent",
+                AnalyticsEvent.props.like('%"ok": false%'),
+            )
+        )).scalar() or 0
+
     return {
         "window_days": days,
         "users_total": users_total,
@@ -171,5 +185,9 @@ async def funnel(admin_key: str = Header(...), days: int = 7):
         "referrals": {
             "total": referrals_total,
             "top_referrers": top_referrers,
+        },
+        "broadcast": {
+            "delivered": delivered,
+            "failed": notif_failed,
         },
     }

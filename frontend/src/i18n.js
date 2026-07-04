@@ -37,6 +37,8 @@ const translations = {
     inviteCountLabel: "Уже приглашено:",
     trustCheckedSuffix: "проверок здоровья питомцев",
     shareResult: "Поделиться результатом",
+    inviteShareText: "🐾 Бесплатный AI-ветеринар в Telegram: проверь здоровье питомца по фото, анализам или симптомам за 30 секунд",
+    shareResultSuffix: "Проверено в VetAI — бесплатном AI-ветеринаре 🐾",
 
     // ChatPage
     chatTitle: "Чат с AI-ветеринаром",
@@ -166,6 +168,8 @@ const translations = {
     inviteCountLabel: "Invited so far:",
     trustCheckedSuffix: "pet health checks",
     shareResult: "Share result",
+    inviteShareText: "🐾 Free AI vet in Telegram: check your pet's health by photo, lab results or symptoms in 30 seconds",
+    shareResultSuffix: "Checked with VetAI — a free AI vet 🐾",
 
     // ChatPage
     chatTitle: "AI Vet Chat",
