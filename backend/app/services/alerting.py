@@ -207,7 +207,9 @@ def _send_milestone_alert(milestone: int, total: int):
 
 # --- User-facing messages ---
 
-MINIAPP_URL = "https://andrew32bit.github.io/vetai/"
+# Versioned URL busts Telegram's aggressive Mini App cache on each release.
+# Bump ?v= when the frontend ships a new version so clients load fresh.
+MINIAPP_URL = "https://andrew32bit.github.io/vetai/?v=140"
 
 # Rate limit for broadcasts: max 1 per hour
 _last_broadcast: float = 0

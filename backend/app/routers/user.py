@@ -10,7 +10,7 @@ from sqlalchemy import select, func, text
 from sqlalchemy.orm import selectinload
 
 from app.config import verify_admin_key
-from app.models.database import async_session, User, Pet, UsageLog, Diagnosis, ChatSession, ErrorLog, ChatFeedback
+from app.models.database import async_session, User, Pet, UsageLog, Diagnosis, ChatSession, ErrorLog, ChatFeedback, AnalyticsEvent
 from app.services.usage_limiter import get_usage_info
 from app.services.alerting import send_new_user_alert, send_welcome_message, send_user_message
 
@@ -598,25 +598,64 @@ async def get_admin_feedback(admin_key: str = Header(...), limit: int = 50):
 class BroadcastRequest(BaseModel):
     text: str
     target: str | int = "all"  # "all" | "active" | telegram_id (int)
+    campaign: str | None = None       # tag for dedup + analytics (e.g. "update_v14")
+    skip_already_sent: bool = False   # skip users already sent this campaign (no duplicates)
+
+
+async def _run_broadcast(recipients: list, text: str, campaign: str | None):
+    """Send a broadcast off the request path (background task).
+
+    Sends are blocking (urllib), so each runs in a thread to avoid stalling the
+    single Uvicorn worker. Every attempt is logged as a `notification_sent`
+    AnalyticsEvent (with campaign) so re-runs can dedup and funnels can measure.
+    """
+    import asyncio
+    import json as _json
+    import time as _time
+    import app.services.alerting as alerting_mod
+
+    sent = failed = 0
+    for telegram_id, lang in recipients:
+        try:
+            result = await asyncio.to_thread(
+                alerting_mod.send_user_message, telegram_id, text, lang or "ru"
+            )
+        except Exception:
+            result = False
+        ok = result is True
+        sent += 1 if ok else 0
+        failed += 0 if ok else 1
+        try:
+            async with async_session() as s:
+                s.add(AnalyticsEvent(
+                    telegram_id=telegram_id,
+                    event="notification_sent",
+                    props=_json.dumps({"campaign": campaign, "ok": ok}, ensure_ascii=False),
+                ))
+                await s.commit()
+        except Exception:
+            pass
+        await asyncio.sleep(0.15)  # gentle pacing for Telegram
+
+    alerting_mod._last_broadcast = _time.time()
+    logging.getLogger(__name__).info(
+        "Broadcast '%s' done: sent=%s failed=%s of %s", campaign, sent, failed, len(recipients)
+    )
 
 
 @router.post("/admin/send-message")
 async def admin_send_message(req: BroadcastRequest, admin_key: str = Header(...)):
-    """Send a message to users via Telegram bot. Target: 'all', 'active', or specific telegram_id."""
+    """Send a message to users via Telegram bot. Target: 'all', 'active', or a telegram_id.
+
+    Mass broadcasts run in the background and return immediately (no gateway
+    timeout). Pass campaign + skip_already_sent to avoid duplicate sends.
+    """
     if not verify_admin_key(admin_key):
         raise HTTPException(403, "Forbidden")
 
-    import time
-    import app.services.alerting as alerting_mod
+    import asyncio
 
     is_single = isinstance(req.target, int) or (isinstance(req.target, str) and req.target.isdigit())
-
-    # Rate limit only for mass broadcasts, not single user messages
-    if not is_single:
-        now = time.time()
-        if now - alerting_mod._last_broadcast < alerting_mod.BROADCAST_COOLDOWN:
-            remaining = int(alerting_mod.BROADCAST_COOLDOWN - (now - alerting_mod._last_broadcast))
-            raise HTTPException(429, f"Broadcast cooldown: {remaining}s remaining")
 
     async with async_session() as session:
         if is_single:
@@ -625,7 +664,6 @@ async def admin_send_message(req: BroadcastRequest, admin_key: str = Header(...)
                 select(User.telegram_id, User.language_code).where(User.telegram_id == tid)
             )).all()
         elif req.target == "active":
-            # Users who made at least 1 request
             active_ids = (await session.execute(
                 select(UsageLog.user_id).distinct()
             )).scalars().all()
@@ -640,25 +678,30 @@ async def admin_send_message(req: BroadcastRequest, admin_key: str = Header(...)
                 .where(User.telegram_id != 12345)
             )).all()
 
-    sent = 0
-    failed = 0
-    blocked = []
-    for telegram_id, lang in rows:
-        result = send_user_message(telegram_id, req.text, lang or "ru")
-        if result is True:
-            sent += 1
-        elif result is None:
-            blocked.append(telegram_id)
-            failed += 1
-        else:
-            failed += 1
+        # Dedup: drop users already sent this campaign.
+        skipped = 0
+        if req.skip_already_sent and req.campaign:
+            already = set((await session.execute(
+                select(AnalyticsEvent.telegram_id).where(
+                    AnalyticsEvent.event == "notification_sent",
+                    AnalyticsEvent.props.like(f'%"campaign": "{req.campaign}"%'),
+                )
+            )).scalars().all())
+            before = len(rows)
+            rows = [r for r in rows if r[0] not in already]
+            skipped = before - len(rows)
 
-    if not is_single:
-        alerting_mod._last_broadcast = time.time()
+    # Single target: send inline for immediate feedback (fast, one message).
+    if is_single:
+        result = send_user_message(rows[0][0], req.text, rows[0][1] or "ru") if rows else False
+        return {"ok": True, "sent": 1 if result is True else 0,
+                "failed": 0 if result is True else 1, "total_targeted": len(rows)}
 
+    # Mass: run in background, return immediately.
+    asyncio.create_task(_run_broadcast(list(rows), req.text, req.campaign))
     return {
-        "sent": sent,
-        "failed": failed,
-        "blocked": blocked,
-        "total_targeted": len(rows),
+        "ok": True,
+        "queued": len(rows),
+        "skipped_already_sent": skipped,
+        "campaign": req.campaign,
     }
