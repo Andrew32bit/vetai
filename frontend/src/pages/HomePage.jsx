@@ -74,9 +74,25 @@ export default function HomePage() {
   }, []);
 
   const remaining = Math.max(0, usageLimit - usageToday);
+  const hasUsed = (() => { try { return !!localStorage.getItem("vetai_has_used"); } catch { return false; } })();
 
   return (
     <div className="px-4 py-3">
+      {/* Activation banner — shown until the user makes their first AI request.
+          Pushes non-activated users straight to the fastest first value (photo). */}
+      {!hasUsed && (
+        <button
+          onClick={() => { track("activation_cta_click", { to: "photo" }); navigate("/photo"); }}
+          className="w-full mb-3 p-4 rounded-2xl text-left text-white bg-gradient-to-br from-tg-blue to-blue-500 shadow-sm active:opacity-90"
+        >
+          <div className="text-base font-bold mb-0.5">{t("activationTitle")}</div>
+          <div className="text-sm text-white/90">{t("activationDesc")}</div>
+          <div className="mt-2 inline-flex items-center gap-1 bg-white/20 rounded-full px-3 py-1 text-sm font-semibold">
+            {t("activationCta")} →
+          </div>
+        </button>
+      )}
+
       {/* Greeting + streak */}
       <div className="mb-3 flex items-start justify-between gap-2">
         <div>
@@ -211,7 +227,7 @@ export default function HomePage() {
           <div className="mt-2 text-center text-xs text-green-600">{t("feedbackThanks")}</div>
         )}
       </div>
-      <div className="text-center text-[9px] text-gray-300 mt-2">v1.4.1</div>
+      <div className="text-center text-[9px] text-gray-300 mt-2">v1.4.2</div>
     </div>
   );
 }

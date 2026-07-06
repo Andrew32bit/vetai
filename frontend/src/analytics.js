@@ -51,6 +51,11 @@ export function getReferrerId() {
  */
 export function track(event, props = {}) {
   try {
+    // Mark the user as activated on their first successful AI result — the Home
+    // activation banner hides once this is set.
+    if (event === "ai_success") {
+      try { localStorage.setItem("vetai_has_used", "1"); } catch {}
+    }
     fetch(`${API_URL}/api/v1/analytics/events`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

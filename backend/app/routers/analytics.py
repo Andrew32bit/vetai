@@ -37,6 +37,8 @@ ALLOWED_EVENTS = {
     "purchase",
     "notification_open",
     "streak_view",
+    "activation_cta_click",
+    "onboarding_skip",
 }
 
 

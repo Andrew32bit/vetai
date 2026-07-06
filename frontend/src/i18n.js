@@ -39,6 +39,10 @@ const translations = {
     shareResult: "Поделиться результатом",
     inviteShareText: "🐾 Бесплатный AI-ветеринар в Telegram: проверь здоровье питомца по фото, анализам или симптомам за 30 секунд",
     shareResultSuffix: "Проверено в VetAI — бесплатном AI-ветеринаре 🐾",
+    activationTitle: "Проверьте питомца прямо сейчас 🐾",
+    activationDesc: "Сфотографируйте кожу, глаза или уши — VetAI даст предварительную оценку за 30 секунд. Бесплатно.",
+    activationCta: "Проверить по фото",
+    onboardingSkip: "Пропустить",
 
     // ChatPage
     chatTitle: "Чат с AI-ветеринаром",
@@ -170,6 +174,10 @@ const translations = {
     shareResult: "Share result",
     inviteShareText: "🐾 Free AI vet in Telegram: check your pet's health by photo, lab results or symptoms in 30 seconds",
     shareResultSuffix: "Checked with VetAI — a free AI vet 🐾",
+    activationTitle: "Check your pet right now 🐾",
+    activationDesc: "Take a photo of skin, eyes or ears — VetAI gives a preliminary assessment in 30 seconds. Free.",
+    activationCta: "Check by photo",
+    onboardingSkip: "Skip",
 
     // ChatPage
     chatTitle: "AI Vet Chat",

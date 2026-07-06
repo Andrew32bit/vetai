@@ -20,7 +20,7 @@ router = APIRouter()
 # --- Schemas ---
 
 class PetData(BaseModel):
-    name: str
+    name: Optional[str] = None  # optional — onboarding can skip details
     species: str  # "cat" | "dog"
     breed: Optional[str] = None
 

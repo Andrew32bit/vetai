@@ -98,10 +98,15 @@ export default function OnboardingPage({ onComplete }) {
             />
             <button
               onClick={next}
-              disabled={!petName}
-              className="w-full bg-tg-blue text-white font-semibold py-3 rounded-xl disabled:opacity-50"
+              className="w-full bg-tg-blue text-white font-semibold py-3 rounded-xl"
             >
               {t("onboardingNext")}
+            </button>
+            <button
+              onClick={() => { track("onboarding_skip"); next(); }}
+              className="w-full text-center text-sm text-gray-400 py-1"
+            >
+              {t("onboardingSkip")}
             </button>
           </div>
         </div>
@@ -128,8 +133,8 @@ export default function OnboardingPage({ onComplete }) {
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
                     telegram_id: Number(telegramId),
-                    pet: { name: petName, species: petType, breed: breed || null },
-                    city: city || null,
+                    pet: { name: petName.trim() || null, species: petType, breed: breed.trim() || null },
+                    city: city.trim() || null,
                   }),
                 });
               } catch (err) {
