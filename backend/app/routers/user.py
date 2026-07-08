@@ -105,7 +105,17 @@ async def auth_user(data: AuthRequest):
             elif _sp:
                 source = ("src_" + _sp)[:40]
             else:
+                # No app-level tag — fall back to a source captured via bot /start
                 source = "organic"
+                try:
+                    from app.models.database import PendingAttribution
+                    pend = (await session.execute(
+                        select(PendingAttribution).where(PendingAttribution.telegram_id == data.telegram_id)
+                    )).scalar_one_or_none()
+                    if pend and pend.source:
+                        source = pend.source
+                except Exception:
+                    pass
 
             new_user = User(
                 telegram_id=data.telegram_id,

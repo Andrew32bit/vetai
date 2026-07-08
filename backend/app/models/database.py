@@ -221,3 +221,14 @@ class Referral(Base):
     referrer_telegram_id = Column(Integer, nullable=False, index=True)
     invitee_telegram_id = Column(Integer, nullable=False, unique=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class PendingAttribution(Base):
+    """Source captured from a bot /start <param> before the user registers.
+    Applied to User.source at /auth time (robust attribution for t.me/<bot>?start=src_X links)."""
+    __tablename__ = "pending_attribution"
+
+    id = Column(Integer, primary_key=True)
+    telegram_id = Column(Integer, unique=True, nullable=False, index=True)
+    source = Column(String(40), nullable=False)  # "src_<channel>" | "referral"
+    created_at = Column(DateTime, default=datetime.utcnow)
